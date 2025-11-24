@@ -23,6 +23,32 @@ rustc --version
 cargo --version
 ```
 
+### Install WebAssembly Binary Toolkit (WABT)
+
+[WABT](https://github.com/WebAssembly/wabt) includes the `wat2wasm` tool for compiling WebAssembly Text format (`.wat`) files into WebAssembly binary (`.wasm`) files.
+
+**On macOS (using Homebrew):**
+
+```bash
+brew install wabt
+```
+
+**Verify installation:**
+
+```bash
+wat2wasm --version
+```
+
+**Compiling .wat files to .wasm:**
+
+```bash
+# Compile a .wat file to .wasm
+wat2wasm input.wat -o output.wasm
+
+# With verbose output
+wat2wasm input.wat -o output.wasm -v
+```
+
 ### Install Node.js 24.11.0+
 
 Direct WASM imports require Node.js v24.11.0+.
@@ -53,8 +79,6 @@ npm --version
 ```
 
 ## Creating New Rust Projects
-
-When creating Rust projects inside an existing Git repository, use the `--vcs none` flag:
 
 ```bash
 cargo new --vcs none my-project
