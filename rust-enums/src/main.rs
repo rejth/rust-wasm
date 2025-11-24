@@ -5,8 +5,8 @@ enum Expression {
     Operation {
         left: Box<Expression>,
         operator: char,
-        right: Box<Expression>
-    }
+        right: Box<Expression>,
+    },
 }
 
 #[derive(Debug, PartialEq)]
@@ -27,7 +27,7 @@ fn precedence(operator: char) -> u8 {
     match operator {
         '*' | '/' => 2,
         '+' | '-' => 1,
-        _ => 0
+        _ => 0,
     }
 }
 
@@ -40,7 +40,7 @@ fn tokenize(input: &str) -> Vec<Token> {
             char if char.is_ascii_digit() => {
                 let mut number = String::new();
                 number.push(char);
-                
+
                 while let Some(&next_char) = chars.peek() {
                     if next_char.is_ascii_digit() {
                         number.push(next_char);
@@ -49,26 +49,16 @@ fn tokenize(input: &str) -> Vec<Token> {
                         break;
                     }
                 }
-                
+
                 let num = number.parse::<i32>().unwrap();
                 tokens.push(Token::Number(num));
             }
-            char if char.is_alphabetic() => {
-                tokens.push(Token::Variable(char))
-            }
-            '+' | '-' | '*' | '/' => {
-                tokens.push(Token::Operator(char))
-            },
-            '(' => {
-                tokens.push(Token::LeftBracket)
-            }
-            ')' => {
-                tokens.push(Token::RightBracket)
-            }
-            char if char.is_whitespace() => {
-                continue
-            },
-            _ => panic!("Unknown symbol: {}", char)
+            char if char.is_alphabetic() => tokens.push(Token::Variable(char)),
+            '+' | '-' | '*' | '/' => tokens.push(Token::Operator(char)),
+            '(' => tokens.push(Token::LeftBracket),
+            ')' => tokens.push(Token::RightBracket),
+            char if char.is_whitespace() => continue,
+            _ => panic!("Unknown symbol: {}", char),
         }
     }
 
@@ -96,16 +86,12 @@ fn parse(input: &str) -> Expression {
 
     for token in tokens {
         match token {
-            Token::Variable(var) => { 
-                operands.push(Expression::Variable(var))
-            },
-            Token::Number(num) => { 
-                operands.push(Expression::Number(num))
-            },
-            Token::Operator(operator) => { 
+            Token::Variable(var) => operands.push(Expression::Variable(var)),
+            Token::Number(num) => operands.push(Expression::Number(num)),
+            Token::Operator(operator) => {
                 while !operators.is_empty() {
                     let last = operators.last().unwrap();
-                    
+
                     match last {
                         ExpressionOperator::LeftBracket => break,
                         ExpressionOperator::Operator(last_operator) => {
@@ -119,14 +105,12 @@ fn parse(input: &str) -> Expression {
                 }
 
                 operators.push(ExpressionOperator::Operator(operator));
-            },
-            Token::LeftBracket => {
-                operators.push(ExpressionOperator::LeftBracket)
-            },
+            }
+            Token::LeftBracket => operators.push(ExpressionOperator::LeftBracket),
             Token::RightBracket => {
                 while !operators.is_empty() {
                     let last = operators.last().unwrap();
-                    
+
                     match last {
                         ExpressionOperator::LeftBracket => break,
                         ExpressionOperator::Operator(_) => {
@@ -141,18 +125,16 @@ fn parse(input: &str) -> Expression {
 
                 // Remove the opening bracket from the operator stack
                 operators.pop().unwrap();
-            },
+            }
         }
     }
 
     while !operators.is_empty() {
         let last = operators.last().unwrap();
-        
+
         match last {
             ExpressionOperator::LeftBracket => break,
-            ExpressionOperator::Operator(_) => {
-                build_operation(&mut operands, &mut operators)
-            }
+            ExpressionOperator::Operator(_) => build_operation(&mut operands, &mut operators),
         }
     }
 
@@ -206,7 +188,7 @@ fn main() {
 
     assert_eq!(
         parse("a * b + c"),
-            Expression::Operation {
+        Expression::Operation {
             left: Box::new(Expression::Operation {
                 left: Box::new(Expression::Variable('a')),
                 operator: '*',
@@ -291,18 +273,18 @@ fn main() {
         }};
     }
 
-    should_panic!("");                    // empty string
-    should_panic!("a +");                 // incomplete expression
-    should_panic!("a + b +");             // same
-    should_panic!("(a + b");              // unclosed bracket
-    should_panic!("a + b)");              // extra bracket
-    should_panic!("a + * b");             // two operators in a row
-    should_panic!("++a");                 // operator at the beginning
-    should_panic!("a b");                 // two identifiers in a row
-    should_panic!("123abc");              // number + letter without operator
-    should_panic!("a! + b");              // unknown symbol
-    should_panic!("@");                   // any garbage
-    should_panic!("   ");                 // only spaces
+    should_panic!(""); // empty string
+    should_panic!("a +"); // incomplete expression
+    should_panic!("a + b +"); // same
+    should_panic!("(a + b"); // unclosed bracket
+    should_panic!("a + b)"); // extra bracket
+    should_panic!("a + * b"); // two operators in a row
+    should_panic!("++a"); // operator at the beginning
+    should_panic!("a b"); // two identifiers in a row
+    should_panic!("123abc"); // number + letter without operator
+    should_panic!("a! + b"); // unknown symbol
+    should_panic!("@"); // any garbage
+    should_panic!("   "); // only spaces
 
     println!("All tests passed!");
 }

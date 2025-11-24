@@ -7,7 +7,7 @@ struct Book<'a> {
     year: u16,
     author: Author<'a>, // The data must live at least as long as the struct (or longer), not less
     tags: Vec<&'a str>,
-    copies: Vec<(u32, bool)>
+    copies: Vec<(u32, bool)>,
 }
 
 struct Library<'a> {
@@ -15,14 +15,17 @@ struct Library<'a> {
 }
 
 /// Returns the number of available copies of the book.
-/// 
+///
 /// # Arguments
 /// * `book` - The book to search in
-/// 
+///
 /// # Returns
 /// The number of available copies of the book.
 fn count_available_copies(book: &Book) -> usize {
-    book.copies.iter().filter(|(_, is_available)| *is_available).count()
+    book.copies
+        .iter()
+        .filter(|(_, is_available)| *is_available)
+        .count()
 }
 
 /// Finds and returns all books by the specified author.
@@ -39,11 +42,15 @@ fn count_available_copies(book: &Book) -> usize {
 /// The returned book references are borrowed from the library and share its lifetime.
 /// Book must live at least as long as Library.
 fn find_books_by_author<'a>(library: &'a Library<'a>, name: &str) -> Box<[&'a Book<'a>]> {
-    library.books.iter().filter(|book| book.author.name == name).collect()
+    library
+        .books
+        .iter()
+        .filter(|book| book.author.name == name)
+        .collect()
 }
 
 /// Returns the oldest book in the library (book with the smallest year).
-/// 
+///
 ///  # Arguments
 /// * `library` - The library to search in
 ///
@@ -88,7 +95,9 @@ fn main() {
     let book2 = Book {
         title: "Пикник на обочине",
         year: 1972,
-        author: Author { name: "Стругацкие" },
+        author: Author {
+            name: "Стругацкие"
+        },
         tags: vec!["sci-fi", "classic"],
         copies: vec![(10, false), (11, false)],
     };

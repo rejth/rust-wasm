@@ -46,7 +46,10 @@ fn print_test() {
     println!("1. Hello, {}! You are {} years old.", name, age);
 
     // 2. Positional arguments
-    println!("2. {1} years old, name is {0}, height {2}m", name, age, height);
+    println!(
+        "2. {1} years old, name is {0}, height {2}m",
+        name, age, height
+    );
 
     // 3. Named arguments
     println!("3. Name: {name}, age: {age}, height: {height:.2}m");

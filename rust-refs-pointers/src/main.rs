@@ -1,5 +1,5 @@
 fn count_words(s: &str) -> usize {
-    return s.split_whitespace().count()
+    return s.split_whitespace().count();
 }
 
 fn append_tag(buffer: &mut String, tag: &str) {
@@ -12,9 +12,12 @@ fn append_tag(buffer: &mut String, tag: &str) {
 
 fn extract_domain(url: &str) -> &str {
     let start = url.find("://").map(|p| p + 3).unwrap_or(0);
-    let domain_end = url[start..].find('/').map(|p| start + p).unwrap_or(url.len());
+    let domain_end = url[start..]
+        .find('/')
+        .map(|p| start + p)
+        .unwrap_or(url.len());
 
-    return &url[start..domain_end]
+    return &url[start..domain_end];
 }
 
 fn redact_sensitive<'a, 'b>(text: &'a mut String, keyword: &'b str) -> &'a str {
@@ -31,8 +34,8 @@ fn redact_sensitive<'a, 'b>(text: &'a mut String, keyword: &'b str) -> &'a str {
     result.push_str(&text[last_end..]);
 
     *text = result;
-    
-    return &text[..10.min(text.len())]
+
+    return &text[..10.min(text.len())];
 }
 
 fn build_summary<'a, 'b>(title: &'a str, body: &'b mut String, max_len: usize) -> (usize, &'a str) {
@@ -47,27 +50,27 @@ fn build_summary<'a, 'b>(title: &'a str, body: &'b mut String, max_len: usize) -
 
     let preview = extract_domain(title);
 
-    return (word_count, preview)
+    return (word_count, preview);
 }
 
 /**
  * Must return reference to EXISTING memory from inputs
  * Can ONLY return contiguous sequences
  * NO allocation
- * 
+ *
  * Current implementation:
  * Find contiguous range in `a`
  * Return slice pointing to that range
 */
 fn find_intersection<'a>(a: &'a [i32], b: &'a [i32]) -> &'a [i32] {
     if a.is_empty() || b.is_empty() {
-        return &[]
+        return &[];
     }
-    
+
     // Find the index of the first element which is in "b" slice
     let start = match a.iter().position(|n| b.binary_search(n).is_ok()) {
         Some(i) => i,
-        None => return &[]
+        None => return &[],
     };
 
     // Find the index of the last consecutive element which is in "b" slice
@@ -76,16 +79,16 @@ fn find_intersection<'a>(a: &'a [i32], b: &'a [i32]) -> &'a [i32] {
         if b.binary_search(&a[i]).is_ok() {
             end = i + 1
         } else {
-            break
+            break;
         }
-    };
+    }
 
-    return &a[start..end]
+    return &a[start..end];
 }
 
 fn _get_intersection<'a>(a: &'a [i32], b: &'a [i32]) -> &'a [i32] {
     if a.is_empty() || b.is_empty() {
-        return &[]
+        return &[];
     }
 
     let mut i = 0;
@@ -110,12 +113,10 @@ fn _get_intersection<'a>(a: &'a [i32], b: &'a [i32]) -> &'a [i32] {
     }
 
     if start == 0 {
-        return &[]
+        return &[];
     }
 
-    return &a[(start - 1)..i]
-
-
+    return &a[(start - 1)..i];
 }
 
 fn main() {
