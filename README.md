@@ -25,7 +25,7 @@ cargo --version
 
 ### Install WebAssembly Binary Toolkit (WABT)
 
-[WABT](https://github.com/WebAssembly/wabt) includes the `wat2wasm` tool for compiling WebAssembly Text format (`.wat`) files into WebAssembly binary (`.wasm`) files.
+[WABT](https://github.com/WebAssembly/wabt) includes the `wat2wasm` tool for compiling WASM Text format (`.wat`) files into WASM binary (`.wasm`) files.
 
 **On macOS (using Homebrew):**
 
