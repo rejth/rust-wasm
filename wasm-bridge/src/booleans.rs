@@ -7,7 +7,7 @@ pub extern "C" fn read_boolean_array(ptr: *const bool, len: usize) {
         log("Boolean Array from JS -> Rust 🦀: []");
         return;
     }
-    
+
     let slice = unsafe { std::slice::from_raw_parts(ptr, len) };
     log(&format!("Boolean Array from JS -> Rust 🦀: {:?}", slice));
 }
@@ -24,4 +24,3 @@ pub extern "C" fn write_boolean_vector() -> *const usize {
 
     header_ptr
 }
-

@@ -24,4 +24,3 @@ pub extern "C" fn write_i32_vector() -> *const usize {
 
     header_ptr
 }
-

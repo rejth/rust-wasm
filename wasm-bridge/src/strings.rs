@@ -77,4 +77,3 @@ pub extern "C" fn write_string() -> *const usize {
 
     header_ptr
 }
-
