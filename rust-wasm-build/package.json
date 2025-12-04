@@ -1,0 +1,16 @@
+{
+  "name": "rust-wasm-build",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "build": "bash scripts/build.sh",
+    "build:debug": "bash scripts/build.sh debug",
+    "test": "node src/index.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

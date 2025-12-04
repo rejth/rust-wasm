@@ -49,6 +49,16 @@ wat2wasm input.wat -o output.wasm
 wat2wasm input.wat -o output.wasm -v
 ```
 
+**Compiling .wasm files to .wat:**
+
+```bash
+# Compile a .wasm file to .wat
+wasm2wat input.wasm -o output.wat
+
+# With verbose output
+wasm2wat input.wasm -o output.wat -v
+```
+
 ### Install Node.js 24.11.0+
 
 Direct WASM imports require Node.js v24.11.0+.

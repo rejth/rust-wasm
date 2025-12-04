@@ -1,0 +1,36 @@
+{
+  "name": "wasm-bridge",
+  "version": "1.0.0",
+  "description": "A JS library for transferring primitive data types between Rust and JavaScript via WebAssembly",
+  "type": "module",
+  "main": "js/index.js",
+  "exports": {
+    ".": "./js/index.js",
+    "./numbers": "./js/numbers.js",
+    "./strings": "./js/strings.js",
+    "./booleans": "./js/booleans.js",
+    "./wasm": "./js/wasm.js"
+  },
+  "scripts": {
+    "build": "bash scripts/build.sh",
+    "build:debug": "bash scripts/build.sh debug",
+    "test:js": "node tests/index.js",
+    "test:rust": "cargo test --target aarch64-apple-darwin",
+    "test:all": "npm run test:rust && npm run test:js",
+    "example:numbers": "node examples/numbers.js",
+    "example:strings": "node examples/strings.js",
+    "example:booleans": "node examples/booleans.js"
+  },
+  "keywords": [
+    "wasm",
+    "webassembly",
+    "rust",
+    "bridge",
+    "ffi"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
