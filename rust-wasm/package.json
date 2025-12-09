@@ -1,5 +1,5 @@
 {
-  "name": "rust-wasm-build",
+  "name": "rust-wasm",
   "version": "1.0.0",
   "type": "module",
   "main": "src/index.js",

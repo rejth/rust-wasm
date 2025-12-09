@@ -11,7 +11,7 @@ NC='\033[0m' # No Color
 # Build mode (release by default)
 MODE=${1:-release}
 
-echo -e "${YELLOW}🦀 Building rust-wasm-build...${NC}"
+echo -e "${YELLOW}🦀 Building rust-wasm...${NC}"
 
 # Check if Rust is installed
 if ! command -v cargo &> /dev/null; then
@@ -29,11 +29,11 @@ fi
 if [ "$MODE" = "debug" ]; then
     echo -e "${YELLOW}Building in debug mode...${NC}"
     cargo build --target wasm32-unknown-unknown
-    WASM_PATH="target/wasm32-unknown-unknown/debug/rust_wasm_build.wasm"
+    WASM_PATH="target/wasm32-unknown-unknown/debug/rust_wasm.wasm"
 else
     echo -e "${YELLOW}Building in release mode...${NC}"
     cargo build --target wasm32-unknown-unknown --release
-    WASM_PATH="target/wasm32-unknown-unknown/release/rust_wasm_build.wasm"
+    WASM_PATH="target/wasm32-unknown-unknown/release/rust_wasm.wasm"
 fi
 
 # Check if build succeeded

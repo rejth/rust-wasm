@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "wasm-bridge"
+name = "rust-wasm"
 version = "0.1.0"

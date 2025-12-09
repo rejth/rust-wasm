@@ -3,10 +3,7 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const wasmPath = path.resolve(
-  __dirname,
-  '../target/wasm32-unknown-unknown/release/rust_wasm_build.wasm',
-);
+const wasmPath = path.resolve(__dirname, '../target/wasm32-unknown-unknown/release/rust_wasm.wasm');
 
 const file = await fs.readFile(wasmPath);
 

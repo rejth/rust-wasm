@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const wasmPath = path.resolve(
   __dirname,
-  '../target/wasm32-unknown-unknown/release/wasm_bridge.wasm',
+  '../target/wasm32-unknown-unknown/release/wasm_data_bridge.wasm',
 );
 
 const file = await fs.readFile(wasmPath);

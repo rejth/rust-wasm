@@ -1,5 +1,5 @@
 {
-  "name": "wasm-bridge",
+  "name": "wasm-data-bridge",
   "version": "1.0.0",
   "description": "A JS library for transferring primitive data types between Rust and JavaScript via WebAssembly",
   "type": "module",
