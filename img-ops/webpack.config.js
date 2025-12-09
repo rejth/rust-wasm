@@ -6,6 +6,9 @@ const dist = path.resolve(__dirname, 'dist');
 
 module.exports = {
   mode: 'production',
+  performance: {
+    hints: false,
+  },
   entry: {
     index: './js/index.js',
   },
@@ -23,7 +26,6 @@ module.exports = {
     new CopyPlugin({
       patterns: [{ from: 'static' }],
     }),
-
     new WasmPackPlugin({
       crateDirectory: __dirname,
       extraArgs: '--target web',

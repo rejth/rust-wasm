@@ -1,6 +1,5 @@
 {
-  "author": "You <you@example.com>",
-  "name": "rust-webpack-template",
+  "name": "img-ops",
   "version": "0.1.0",
   "scripts": {
     "build": "rimraf dist pkg && webpack --mode production",
