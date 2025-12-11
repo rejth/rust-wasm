@@ -1,0 +1,176 @@
+export const styles = {
+  app: {
+    padding: '24px',
+    maxWidth: '1200px',
+    margin: '0 auto',
+  },
+  header: {
+    color: '#fff',
+    fontSize: '24px',
+    marginBottom: '24px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  badge: {
+    background: 'linear-gradient(135deg, #e67e22, #d35400)',
+    padding: '4px 10px',
+    borderRadius: '4px',
+    fontSize: '12px',
+    fontWeight: 'bold',
+  },
+  tabs: {
+    display: 'flex',
+    gap: '8px',
+    marginBottom: '24px',
+  },
+  tab: {
+    padding: '12px 24px',
+    fontSize: '14px',
+    fontWeight: 'bold',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+  },
+  tabActive: {
+    background: '#e67e22',
+    color: '#fff',
+  },
+  tabInactive: {
+    background: '#252530',
+    color: '#888',
+  },
+  container: {
+    display: 'flex',
+    gap: '24px',
+    flexWrap: 'wrap',
+  },
+  card: {
+    background: '#151520',
+    borderRadius: '12px',
+    padding: '20px',
+    minWidth: '280px',
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: '16px',
+    fontWeight: 'bold',
+    marginBottom: '4px',
+  },
+  cardSubtitle: {
+    fontSize: '12px',
+    color: '#666',
+    marginBottom: '16px',
+  },
+  canvas: {
+    display: 'block',
+    borderRadius: '8px',
+    marginBottom: '16px',
+  },
+  buttonGroup: {
+    display: 'flex',
+    gap: '8px',
+  },
+  button: {
+    padding: '10px 16px',
+    fontSize: '13px',
+    fontWeight: 'bold',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    transition: 'transform 0.1s, opacity 0.1s',
+  },
+  info: {
+    marginTop: '12px',
+    fontSize: '12px',
+    color: '#888',
+  },
+  benchmarkCard: {
+    background: '#151520',
+    borderRadius: '12px',
+    padding: '20px',
+    marginTop: '24px',
+  },
+  benchmarkHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    marginBottom: '16px',
+  },
+  benchmarkTitle: {
+    color: '#fff',
+    fontSize: '16px',
+    fontWeight: 'bold',
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    marginTop: '16px',
+  },
+  th: {
+    textAlign: 'left',
+    padding: '12px',
+    borderBottom: '1px solid #333',
+    color: '#888',
+    fontSize: '12px',
+  },
+  td: {
+    padding: '12px',
+    fontSize: '13px',
+  },
+  speedBar: {
+    height: '8px',
+    borderRadius: '4px',
+    background: '#333',
+    overflow: 'hidden',
+  },
+  speedFill: {
+    height: '100%',
+    borderRadius: '4px',
+    transition: 'width 0.3s',
+  },
+  // Visual Demo styles
+  demoContainer: {
+    background: '#151520',
+    borderRadius: '12px',
+    padding: '24px',
+  },
+  demoSection: {
+    marginBottom: '32px',
+  },
+  demoSectionTitle: {
+    color: '#fff',
+    fontSize: '16px',
+    fontWeight: 'bold',
+    marginBottom: '16px',
+  },
+  demoRow: {
+    display: 'flex',
+    gap: '24px',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+  },
+  demoItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  demoLabel: {
+    color: '#888',
+    fontSize: '12px',
+    marginBottom: '8px',
+    textAlign: 'center',
+  },
+  demoCanvas: {
+    borderRadius: '4px',
+    border: '1px solid #333',
+    background: '#000',
+  },
+  demoNote: {
+    color: '#666',
+    fontSize: '12px',
+    marginTop: '12px',
+    fontStyle: 'italic',
+  },
+};

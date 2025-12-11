@@ -10,7 +10,7 @@ module.exports = {
     hints: false,
   },
   entry: {
-    index: './js/index.js',
+    index: './js/index.jsx',
   },
   output: {
     path: dist,
@@ -18,9 +18,27 @@ module.exports = {
   },
   devServer: {
     static: dist,
+    hot: true,
   },
   experiments: {
     asyncWebAssembly: true,
+  },
+  resolve: {
+    extensions: ['.js', '.jsx'],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.jsx?$/,
+        exclude: /node_modules/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: ['@babel/preset-react'],
+          },
+        },
+      },
+    ],
   },
   plugins: [
     new CopyPlugin({

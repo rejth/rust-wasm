@@ -7,15 +7,12 @@
 html,
 body {
   width: 100%;
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
+  background: #0a0a0f;
+  overflow: auto;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 }
 
-#app {
-  width: 100%;
-  height: 100%;
-}
-
-#canvas {
-  display: block;
+#root {
+  min-height: 100vh;
 }

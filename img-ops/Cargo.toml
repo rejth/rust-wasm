@@ -37,6 +37,8 @@ features = [
   "ImageBitmap",
   "ImageData",
   "OffscreenCanvas",
+  "CanvasRenderingContext2d",
+  "HtmlCanvasElement",
   "OffscreenCanvasRenderingContext2d",
 ]
 

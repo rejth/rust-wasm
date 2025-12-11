@@ -1,5 +1,8 @@
 use wasm_bindgen::prelude::*;
-use web_sys::{ImageBitmap, OffscreenCanvas, OffscreenCanvasRenderingContext2d, console};
+use web_sys::{
+    CanvasRenderingContext2d, HtmlCanvasElement, ImageBitmap, ImageData, OffscreenCanvas,
+    OffscreenCanvasRenderingContext2d, console,
+};
 
 #[cfg(feature = "wee_alloc")]
 #[global_allocator]
@@ -18,21 +21,8 @@ pub fn main_js() -> Result<(), JsValue> {
     Ok(())
 }
 
-/// Lanczos resampling algorithm
-///
-/// The Lanczos kernel:
-///
-/// ```text
-///         ⎧ sinc(x) × sinc(x/a)   if |x| < a
-/// L(x) =  ⎨
-///         ⎩ 0                     otherwise
-/// ```
-///
-/// Where:
-/// - `sinc(x) = sin(πx) / (πx)`
-/// - `a` = kernel size (2 = faster, 3 = higher quality)
-
-const ALPHA: f64 = 3.0;
+/// Lanczos kernel size (a=2 for speed)
+const LANCZOS_A: f64 = 2.0;
 
 /// Normalized sinc function: `sin(πx) / (πx)`
 fn sinc(x: f64) -> f64 {
@@ -40,138 +30,207 @@ fn sinc(x: f64) -> f64 {
         return 1.0;
     }
     let px = std::f64::consts::PI * x;
-    return f64::sin(px) / px;
+    f64::sin(px) / px
 }
 
-/// Lanczos kernel with parameter "a" (window size), a=2 is faster, a=3 is higher quality
-fn lanczos_kernel(x: f64, a: f64) -> f64 {
+/// Lanczos kernel
+fn lanczos_kernel(x: f64, alpha: f64) -> f64 {
     if x == 0.0 {
         return 1.0;
     }
-    if x.abs() >= a {
+    if x.abs() >= alpha {
         return 0.0;
     }
-    return sinc(x) * sinc(x / a);
+    sinc(x) * sinc(x / alpha)
 }
 
-fn lanczos_resample(
-    src_pixels: &[u8],
-    src_width: usize,
-    src_height: usize,
-    dst_width: usize,
-    dst_height: usize,
-) -> Vec<u8> {
-    let mut dst_pixels = vec![0u8; dst_width * dst_height * 4];
+/// Clamp value to valid range
+fn clamp_idx(val: isize, max: usize) -> usize {
+    val.max(0).min(max as isize - 1) as usize
+}
 
-    // Scale factors
-    let scale_x = src_width as f64 / dst_width as f64;
-    let scale_y = src_height as f64 / dst_height as f64;
+/// Horizontal pass (1D) with edge extension
+fn resample_horizontal(
+    src: &[f64],
+    src_w: usize,
+    src_h: usize,
+    dst_w: usize,
+    alpha: f64,
+) -> Vec<f64> {
+    let mut dst = vec![0.0f64; dst_w * src_h * 4];
+    let scale = src_w as f64 / dst_w as f64;
+    let support = alpha.ceil() as isize;
 
-    // Iterate over each destination pixel
-    for dst_y in 0..dst_height {
-        for dst_x in 0..dst_width {
-            // Map destination pixel to source coordinates (center of the pixel)
-            let src_center_x = (dst_x as f64 + 0.5) * scale_x - 0.5;
-            let src_center_y = (dst_y as f64 + 0.5) * scale_y - 0.5;
+    for y in 0..src_h {
+        for dx in 0..dst_w {
+            let cx = (dx as f64 + 0.5) * scale - 0.5;
+            let center = cx.floor() as isize;
 
-            // Determine the range of source pixels to sample
-            let start_x = (src_center_x - ALPHA).max(0.0).floor() as usize;
-            let end_x = ((src_center_x + ALPHA).ceil() as usize).min(src_width);
-            let start_y = (src_center_y - ALPHA).max(0.0).floor() as usize;
-            let end_y = ((src_center_y + ALPHA).ceil() as usize).min(src_height);
+            let (mut r, mut g, mut b, mut a, mut w) = (0.0, 0.0, 0.0, 0.0, 0.0);
 
-            // Accumulate weighted samples
-            let mut r = 0.0;
-            let mut g = 0.0;
-            let mut b = 0.0;
-            let mut a = 0.0;
-            let mut weight_sum = 0.0;
-
-            // Convolve with the Lanczos kernel
-            for y_src in start_y..end_y {
-                for x_src in start_x..end_x {
-                    // Calculate Lanczos weight
-                    let dx = src_center_x - x_src as f64;
-                    let dy = src_center_y - y_src as f64;
-                    let weight = lanczos_kernel(dx, ALPHA) * lanczos_kernel(dy, ALPHA);
-
-                    // Get source pixel index
-                    let src_idx = (y_src * src_width + x_src) * 4;
-
-                    // Accumulate weighted sample
-                    r += src_pixels[src_idx] as f64 * weight;
-                    g += src_pixels[src_idx + 1] as f64 * weight;
-                    b += src_pixels[src_idx + 2] as f64 * weight;
-                    a += src_pixels[src_idx + 3] as f64 * weight;
-                    weight_sum += weight;
-                }
+            // Sample full kernel window with edge clamping
+            for offset in -support..=support {
+                let sx = clamp_idx(center + offset, src_w);
+                let weight = lanczos_kernel(cx - (center + offset) as f64, alpha);
+                let i = (y * src_w + sx) * 4;
+                r += src[i] * weight;
+                g += src[i + 1] * weight;
+                b += src[i + 2] * weight;
+                a += src[i + 3] * weight;
+                w += weight;
             }
 
-            // Normalize and write to destination
-            let dst_idx = (dst_y * dst_width + dst_x) * 4;
-            if weight_sum > 0.0 {
-                dst_pixels[dst_idx] = (r / weight_sum).clamp(0.0, 255.0) as u8;
-                dst_pixels[dst_idx + 1] = (g / weight_sum).clamp(0.0, 255.0) as u8;
-                dst_pixels[dst_idx + 2] = (b / weight_sum).clamp(0.0, 255.0) as u8;
-                dst_pixels[dst_idx + 3] = (a / weight_sum).clamp(0.0, 255.0) as u8;
+            let i = (y * dst_w + dx) * 4;
+            if w > 0.0 {
+                dst[i] = r / w;
+                dst[i + 1] = g / w;
+                dst[i + 2] = b / w;
+                dst[i + 3] = a / w;
             }
         }
     }
-
-    dst_pixels
+    dst
 }
 
-fn get_ctx_2d(canvas: &OffscreenCanvas) -> Result<OffscreenCanvasRenderingContext2d, JsValue> {
+/// Vertical pass (1D) with edge extension
+fn resample_vertical(src: &[f64], w: usize, src_h: usize, dst_h: usize, alpha: f64) -> Vec<u8> {
+    let mut dst = vec![0u8; w * dst_h * 4];
+    let scale = src_h as f64 / dst_h as f64;
+    let support = alpha.ceil() as isize;
+
+    for dy in 0..dst_h {
+        let cy = (dy as f64 + 0.5) * scale - 0.5;
+        let center = cy.floor() as isize;
+
+        for x in 0..w {
+            let (mut r, mut g, mut b, mut a, mut wt) = (0.0, 0.0, 0.0, 0.0, 0.0);
+
+            // Sample full kernel window with edge clamping
+            for offset in -support..=support {
+                let sy = clamp_idx(center + offset, src_h);
+                let weight = lanczos_kernel(cy - (center + offset) as f64, alpha);
+                let i = (sy * w + x) * 4;
+                r += src[i] * weight;
+                g += src[i + 1] * weight;
+                b += src[i + 2] * weight;
+                a += src[i + 3] * weight;
+                wt += weight;
+            }
+
+            let i = (dy * w + x) * 4;
+            if wt > 0.0 {
+                dst[i] = (r / wt).clamp(0.0, 255.0) as u8;
+                dst[i + 1] = (g / wt).clamp(0.0, 255.0) as u8;
+                dst[i + 2] = (b / wt).clamp(0.0, 255.0) as u8;
+                dst[i + 3] = (a / wt).clamp(0.0, 255.0) as u8;
+            }
+        }
+    }
+    dst
+}
+
+/// Lanczos-2 resampling
+fn lanczos_resample(src: &[u8], sw: usize, sh: usize, dw: usize, dh: usize, alpha: f64) -> Vec<u8> {
+    let src_f64: Vec<f64> = src.iter().map(|&x| x as f64).collect();
+    let intermediate = resample_horizontal(&src_f64, sw, sh, dw, alpha);
+    resample_vertical(&intermediate, dw, sh, dh, alpha)
+}
+
+fn get_ctx(canvas: &HtmlCanvasElement) -> Result<CanvasRenderingContext2d, JsValue> {
+    Ok(canvas
+        .get_context("2d")?
+        .ok_or("Failed to get 2d context")?
+        .dyn_into::<CanvasRenderingContext2d>()?)
+}
+
+/// Scale canvas content by 2x using Lanczos-2 separable resampling
+#[wasm_bindgen]
+pub fn scale_canvas_2x(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
+    let sw = canvas.width();
+    let sh = canvas.height();
+    let dw = sw * 2;
+    let dh = sh * 2;
+
+    log(&format!("Lanczos 2x: {}x{} → {}x{}", sw, sh, dw, dh));
+
+    // Get pixel data
+    let ctx = get_ctx(canvas)?;
+    let src_data = ctx.get_image_data(0.0, 0.0, sw as f64, sh as f64)?;
+    let src_pixels = src_data.data().to_vec();
+
+    // Apply Lanczos-2 resampling
+    let dst_pixels = lanczos_resample(
+        &src_pixels,
+        sw as usize,
+        sh as usize,
+        dw as usize,
+        dh as usize,
+        LANCZOS_A,
+    );
+
+    // Create output canvas with scaled image
+    let dst_data = web_sys::ImageData::new_with_u8_clamped_array_and_sh(
+        wasm_bindgen::Clamped(&dst_pixels),
+        dw,
+        dh,
+    )?;
+
+    canvas.set_width(dw);
+    canvas.set_height(dh);
+
+    let ctx = get_ctx(canvas)?;
+    ctx.put_image_data(&dst_data, 0.0, 0.0)?;
+
+    log("Done! 🎉");
+    Ok(())
+}
+
+fn get_offscreen_ctx(
+    canvas: &OffscreenCanvas,
+) -> Result<OffscreenCanvasRenderingContext2d, JsValue> {
     Ok(canvas
         .get_context("2d")?
         .ok_or("Failed to get 2d context")?
         .dyn_into::<OffscreenCanvasRenderingContext2d>()?)
 }
 
-/// Scale image using Lanczos resampling
+/// Scale an ImageBitmap to specified dimensions using Lanczos-2 resampling
 #[wasm_bindgen]
-pub async fn scale_image(
-    bitmap: ImageBitmap,
-    new_width: u32,
-    new_height: u32,
-) -> Result<ImageBitmap, JsValue> {
-    #[cfg(debug_assertions)]
-    console_error_panic_hook::set_once();
+pub fn scale_image(image: &ImageBitmap, dst_w: u32, dst_h: u32) -> Result<ImageData, JsValue> {
+    let sw = image.width();
+    let sh = image.height();
 
-    // Get source dimensions
-    let src_width = bitmap.width();
-    let src_height = bitmap.height();
+    log(&format!(
+        "Lanczos scale: {}x{} → {}x{}",
+        sw, sh, dst_w, dst_h
+    ));
 
-    // Create source canvas to extract pixel data
-    let src_canvas = OffscreenCanvas::new(src_width, src_height)?;
-    let src_ctx = get_ctx_2d(&src_canvas)?;
-    src_ctx.draw_image_with_image_bitmap(&bitmap, 0.0, 0.0)?;
+    // Draw ImageBitmap to OffscreenCanvas to get pixel data
+    let src_canvas = OffscreenCanvas::new(sw, sh)?;
+    let src_ctx = get_offscreen_ctx(&src_canvas)?;
+    src_ctx.draw_image_with_image_bitmap(image, 0.0, 0.0)?;
 
-    let src_image_data = src_ctx.get_image_data(0.0, 0.0, src_width as f64, src_height as f64)?;
-    let src_pixels = src_image_data.data().to_vec();
+    // Get pixel data
+    let src_data = src_ctx.get_image_data(0.0, 0.0, sw as f64, sh as f64)?;
+    let src_pixels = src_data.data().to_vec();
 
-    // Resample the pixels using the Lanczos resampling algorithm
+    // Apply Lanczos-2 resampling
     let dst_pixels = lanczos_resample(
         &src_pixels,
-        src_width as usize,
-        src_height as usize,
-        new_width as usize,
-        new_height as usize,
+        sw as usize,
+        sh as usize,
+        dst_w as usize,
+        dst_h as usize,
+        LANCZOS_A,
     );
 
-    // Create ImageData from result
+    // Create and return ImageData
     let dst_data = web_sys::ImageData::new_with_u8_clamped_array_and_sh(
         wasm_bindgen::Clamped(&dst_pixels),
-        new_width,
-        new_height,
+        dst_w,
+        dst_h,
     )?;
 
-    // Create destination canvas to put the resampled data
-    let dst_canvas = OffscreenCanvas::new(new_width, new_height)?;
-    let dst_ctx = get_ctx_2d(&dst_canvas)?;
-    dst_ctx.put_image_data(&dst_data, 0.0, 0.0)?;
-
-    // Create ImageBitmap from canvas
-    let result = dst_canvas.transfer_to_image_bitmap()?;
-    Ok(result)
+    log("Done! 🎉");
+    Ok(dst_data)
 }
