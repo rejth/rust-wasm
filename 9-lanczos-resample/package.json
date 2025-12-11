@@ -1,5 +1,5 @@
 {
-  "name": "rust-web",
+  "name": "lanczos-resample",
   "version": "0.1.0",
   "scripts": {
     "build": "rimraf dist pkg && webpack --mode production",
