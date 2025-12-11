@@ -11,7 +11,7 @@ pub enum Token {
 ///
 /// # Examples
 /// ```
-/// use rust_enums::{tokenize, Token};
+/// use math_parser::{tokenize, Token};
 ///
 /// assert_eq!(tokenize("1 + 2"), vec![Token::Number(1), Token::Operator('+'), Token::Number(2)]);
 /// assert_eq!(tokenize("x * y"), vec![Token::Variable('x'), Token::Operator('*'), Token::Variable('y')]);
@@ -80,7 +80,7 @@ fn precedence(operator: char) -> u8 {
 ///
 /// # Examples
 /// ```
-/// use rust_enums::{parse, Expression};
+/// use math_parser::{parse, Expression};
 ///
 /// assert_eq!(parse("1 + 2"), Expression::Operation { left: Box::new(Expression::Number(1)), operator: '+', right: Box::new(Expression::Number(2)) });
 /// assert_eq!(parse("x * y"), Expression::Operation { left: Box::new(Expression::Variable('x')), operator: '*', right: Box::new(Expression::Variable('y')) });

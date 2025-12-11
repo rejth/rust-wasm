@@ -1,4 +1,4 @@
-use rust_modules::tinycsv_db::*;
+use tinycsv_db::tinycsv_db::*;
 
 fn main() {
     // Create a new schema for the database

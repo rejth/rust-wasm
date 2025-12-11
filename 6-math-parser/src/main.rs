@@ -1,4 +1,4 @@
-use rust_enums::{Expression, parse};
+use math_parser::{parse, Expression};
 
 fn main() {
     // 1. Simple atoms

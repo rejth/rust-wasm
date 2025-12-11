@@ -1,5 +1,5 @@
 {
-  "name": "img-ops",
+  "name": "rust-web",
   "version": "0.1.0",
   "scripts": {
     "build": "rimraf dist pkg && webpack --mode production",
