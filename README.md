@@ -1,4 +1,4 @@
-# Experiments with Rust and WebAssembly to supercharge Javascript
+# Experiments with Rust and WebAssembly
 
 ## Prerequisites
 
