@@ -1,3 +1,4 @@
+#[derive(Debug, PartialEq)]
 pub enum DataType {
     Integer,
     Text,
@@ -5,7 +6,7 @@ pub enum DataType {
     Boolean,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Value {
     Integer(i64),
     Text(String),

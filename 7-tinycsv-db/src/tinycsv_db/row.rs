@@ -1,19 +1,53 @@
-use super::types::Value;
+use super::schema::Schema;
+use super::types::{DataType, Value};
 
+#[derive(Debug, PartialEq)]
 pub struct Row {
-    pub(super) values: Vec<Value>,
+    pub(crate) values: Vec<Value>,
 }
 
 impl Row {
     pub fn new(values: Vec<Value>) -> Self {
-        Row { values }
+        Self { values }
     }
 
-    pub fn get_values(&self) -> &Vec<Value> {
+    pub fn get_values(&self) -> &[Value] {
         &self.values
     }
 
-    pub fn get_value(&self, index: usize) -> Option<&Value> {
-        self.values.get(index)
+    /// Parse row from CSV string.
+    ///
+    /// # Arguments
+    /// * `row` - CSV string to parse row from
+    /// * `schema` - Schema to parse row from
+    ///
+    /// # Returns
+    /// A new row parsed from the CSV string.
+    ///
+    /// # Panics
+    /// Panics if the CSV string is invalid.
+    pub(crate) fn parse_row(row: &str, schema: &Schema) -> Self {
+        let mut values = vec![];
+
+        for (i, column) in row.split(",").enumerate() {
+            assert!(i < schema.columns.len());
+
+            match schema.columns[i].1 {
+                DataType::Integer => {
+                    values.push(Value::Integer(column.parse::<i64>().unwrap()));
+                }
+                DataType::Float => {
+                    values.push(Value::Float(column.parse::<f64>().unwrap()));
+                }
+                DataType::Text => {
+                    values.push(Value::Text(column.to_string()));
+                }
+                DataType::Boolean => {
+                    values.push(Value::Boolean(column == "true"));
+                }
+            }
+        }
+
+        Self { values }
     }
 }

@@ -1,7 +1,6 @@
 use tinycsv_db::tinycsv_db::*;
 
 fn main() {
-    // Create a new schema for the database
     let schema = Schema::new(vec![
         ("id".to_string(), DataType::Integer),
         ("name".to_string(), DataType::Text),
@@ -9,11 +8,10 @@ fn main() {
         ("active".to_string(), DataType::Boolean),
     ]);
 
-    // Create a new database with the schema
     let mut db = Database::new(schema);
 
-    // Insert a new row into the database
-    insert(
+    // Insert
+    insert_to(
         &mut db,
         Row::new(vec![
             Value::Integer(1),
@@ -22,41 +20,45 @@ fn main() {
             Value::Boolean(true),
         ]),
     );
+    insert_to(
+        &mut db,
+        Row::new(vec![
+            Value::Integer(2),
+            Value::Text("Bob".to_string()),
+            Value::Float(60.0),
+            Value::Boolean(true),
+        ]),
+    );
 
-    // Get the rows from the database
-    let rows = db.get_rows();
-    let row = &rows[0];
-    assert_eq!(rows.len(), 1);
-    assert_eq!(row.get_value(0), Some(&Value::Integer(1)));
-    assert_eq!(row.get_value(1), Some(&Value::Text("Alice".to_string())));
-    assert_eq!(row.get_value(2), Some(&Value::Float(95.5)));
-    assert_eq!(row.get_value(3), Some(&Value::Boolean(true)));
-
-    // Find rows with an exact match for the value "Alice" in the "name" column
+    // Search
     let ids = find_exact(&db, "name", &Value::Text("Alice".to_string()));
-    assert_eq!(ids.len(), 1);
+    assert_eq!(*ids, [0]);
 
-    // Find rows containing the text "lic" in the "name" column
     let contains = find_contains(&db, "name", "lic");
-    assert_eq!(contains.len(), 1);
+    assert_eq!(*contains, [0]);
 
-    // Convert the database to a CSV string
+    // Serialization / deserialization
     let csv = to_csv(&db);
-    assert_eq!(csv, "id,name,score,active\n1,Alice,95.5,true\n");
+    assert_eq!(
+        csv,
+        "\
+id:Integer,name:Text,score:Float,active:Boolean
+1,Alice,95.5,true
+2,Bob,60,true
+"
+    );
 
-    // Restore the database from the CSV string
     let db2 = Database::from_csv(&csv);
-    let rows = db2.get_rows();
-    let row = &rows[0];
-    assert_eq!(rows.len(), 1);
-    assert_eq!(row.get_value(0), Some(&Value::Integer(1)));
-    assert_eq!(row.get_value(1), Some(&Value::Text("Alice".to_string())));
-    assert_eq!(row.get_value(2), Some(&Value::Float(95.5)));
-    assert_eq!(row.get_value(3), Some(&Value::Boolean(true)));
+    assert_eq!(db2, db);
 
-    // Delete the row
-    delete(&mut db, |row| row.get_value(0) == Some(&Value::Integer(1)));
-    assert_eq!(db.get_rows().len(), 0);
+    remove_exact(&mut db, "name", &Value::Text("Bob".to_string()));
+    assert_eq!(
+        to_csv(&db),
+        "\
+id:Integer,name:Text,score:Float,active:Boolean
+1,Alice,95.5,true
+"
+    );
 
     println!("All tests passed!");
 }

@@ -1,26 +1,22 @@
 use super::row::Row;
 use super::schema::Schema;
-use super::types::{DataType, Value};
 
+#[derive(Debug, PartialEq)]
 pub struct Database {
     pub(crate) schema: Schema,
-    pub(super) rows: Vec<Row>,
+    pub(crate) data: Vec<Row>,
 }
 
 impl Database {
     pub fn new(schema: Schema) -> Self {
-        Database {
+        Self {
             schema,
-            rows: Vec::new(),
+            data: vec![],
         }
     }
 
-    pub fn get_schema(&self) -> &Schema {
-        &self.schema
-    }
-
-    pub fn get_rows(&self) -> &Vec<Row> {
-        &self.rows
+    pub fn get_data(&self) -> &[Row] {
+        &self.data
     }
 
     /// Restore database from CSV string.
@@ -33,47 +29,14 @@ impl Database {
     ///
     /// # Panics
     /// Panics if the CSV string is invalid.
-    pub fn from_csv(input: &str) -> Database {
-        let mut columns: Vec<(String, DataType)> = Vec::new();
-        let mut rows: Vec<Row> = Vec::new();
+    pub fn from_csv(csv: &str) -> Self {
+        let schema = Schema::parse_schema(csv.lines().next().unwrap());
+        let data = csv
+            .lines()
+            .skip(1)
+            .map(|row| Row::parse_row(row, &schema))
+            .collect();
 
-        let headers = input.lines().next().unwrap();
-
-        for header in headers.split(',') {
-            match header {
-                "id" => columns.push(("id".to_string(), DataType::Integer)),
-                "name" => columns.push(("name".to_string(), DataType::Text)),
-                "score" => columns.push(("score".to_string(), DataType::Float)),
-                "active" => columns.push(("active".to_string(), DataType::Boolean)),
-                _ => panic!("Unknown field, {}", header),
-            }
-        }
-
-        for row in input.lines().skip(1) {
-            rows.push(Row {
-                values: row
-                    .split(',')
-                    .map(|value| detect_value_type(value.trim()))
-                    .collect(),
-            });
-        }
-
-        Database {
-            schema: Schema { columns },
-            rows,
-        }
+        Self { schema, data }
     }
-}
-
-fn detect_value_type(value: &str) -> Value {
-    if let Ok(b) = value.parse::<bool>() {
-        return Value::Boolean(b);
-    }
-    if let Ok(i) = value.parse::<i64>() {
-        return Value::Integer(i);
-    }
-    if let Ok(f) = value.parse::<f64>() {
-        return Value::Float(f);
-    }
-    Value::Text(value.to_string())
 }
