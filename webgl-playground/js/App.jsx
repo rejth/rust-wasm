@@ -3,8 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   createProgram,
   createShader,
-  initBuffers,
-  setupVertexArray,
+  createVertexAttributeState,
   drawScene,
 } from './shaders/utils.js';
 import vertexSource from './shaders/vertex.glsl';
@@ -22,9 +21,8 @@ export function App() {
 
   useEffect(() => {
     if (!canvasRef.current) return;
-    const canvas = canvasRef.current;
 
-    const gl = canvas.getContext('webgl2');
+    const gl = canvasRef.current.getContext('webgl2');
     if (!gl) return;
 
     // Create GLSL shaders, upload the GLSL source, compile the shaders
@@ -38,27 +36,22 @@ export function App() {
     // Look up where the vertex data needs to go. It will read the vertex data from the buffer
     const programInfo = {
       program,
+      // Attributes are variables that are stored for each vertex.
       attributeLocations: {
         vertexPosition: gl.getAttribLocation(program, 'aVertexPosition'),
+        vertexColor: gl.getAttribLocation(program, 'aVertexColor'),
       },
+      // Uniforms are variables that are shared between all vertices of the same object.
       uniformLocations: {
         projectionMatrix: gl.getUniformLocation(program, 'uProjectionMatrix'),
         modelViewMatrix: gl.getUniformLocation(program, 'uModelViewMatrix'),
       },
     };
 
-    const buffers = initBuffers(gl);
+    // Create the vertex attribute state
+    createVertexAttributeState(gl, programInfo);
 
-    // Configure the vertex array
-    setupVertexArray(gl, buffers, programInfo);
-
-    // Resize canvas to display size
-    webglUtils.resizeCanvasToDisplaySize(gl.canvas);
-
-    // Set viewport
-    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-
-    // Draw
+    // Draw the scene
     drawScene(gl, programInfo);
   }, [ready]);
 
