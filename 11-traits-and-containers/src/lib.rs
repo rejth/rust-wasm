@@ -1,17 +1,21 @@
+#[allow(dead_code)]
 struct User<T>(T);
 
+#[allow(dead_code)]
 impl<T> User<T> {
     fn simple_hello(&self) {
         println!("Hello");
     }
 }
 
+#[allow(dead_code)]
 impl User<&str> {
     fn hello(&self) {
         println!("Hello user, {}", self.0);
     }
 }
 
+#[allow(dead_code)]
 impl User<i32> {
     fn hello(&self) {
         println!("Hello, android {}", self.0);
@@ -19,10 +23,12 @@ impl User<i32> {
 }
 
 // ------------------------------------------------------------
+#[allow(dead_code)]
 trait Answerable<T: Copy> {
     fn answer(&self) -> T;
 }
 
+#[allow(dead_code)]
 struct User3<T> {
     value: T,
 }
@@ -40,10 +46,12 @@ impl<T: Copy, B> Answerable<T> for (T, B) {
 }
 
 //-----------------------------------------------------------
+#[allow(dead_code)]
 trait ConvertFrom<T> {
     fn convert_from(value: T) -> Self;
 }
 
+#[allow(dead_code)]
 #[derive(Debug, PartialEq, Copy, Clone)]
 struct RGB(u8, u8, u8);
 
@@ -77,12 +85,14 @@ impl ConvertFrom<RGBA> for RGB {
 // - A type can implement a trait only once (with one Item type)
 // - The element type is fixed for a specific implementation
 // - No need to specify the type every time when using
+#[allow(dead_code)]
 trait Iterator {
     type Item; // ← "Each iterator has an element type, but we don't know which one yet"
 
     fn next(&mut self) -> Option<Self::Item>; // ← Self::Item = concrete type from implementation
 }
 
+#[allow(dead_code)]
 struct Counter {
     count: u32,
 }
@@ -99,6 +109,7 @@ impl Iterator for Counter {
 }
 
 // Example: another iterator with a different element type
+#[allow(dead_code)]
 struct StringIterator {
     strings: Vec<String>,
     index: usize,
@@ -124,6 +135,7 @@ impl Iterator for StringIterator {
 // Similar to an associated type, allows you to bind a constant to a trait
 // These constants can also be used in default implementations
 // Unlike an associated type, they may have a default value
+#[allow(dead_code)]
 trait Greeting {
     const GREETING: &'static str = "Hello";
 
@@ -132,7 +144,10 @@ trait Greeting {
     }
 }
 
+#[allow(dead_code)]
 struct English;
+
+#[allow(dead_code)]
 struct Russian;
 
 impl Greeting for English {}
