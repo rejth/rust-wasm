@@ -1,6 +1,6 @@
 # You must change these to your own details.
 [package]
-name = "webgl-playground"
+name = "webgl-sandbox"
 version = "0.1.0"
 edition = "2024"
 
