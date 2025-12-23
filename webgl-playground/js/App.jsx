@@ -38,13 +38,14 @@ export function App() {
       program,
       // Attributes are variables that are stored for each vertex.
       attributeLocations: {
-        vertexPosition: gl.getAttribLocation(program, 'aVertexPosition'),
-        vertexColor: gl.getAttribLocation(program, 'aVertexColor'),
+        vertexPosition: gl.getAttribLocation(program, 'a_position'),
+        vertexColor: gl.getAttribLocation(program, 'a_color'),
+        textureCoord: gl.getAttribLocation(program, 'a_uv'),
       },
       // Uniforms are variables that are shared between all vertices of the same object.
       uniformLocations: {
-        projectionMatrix: gl.getUniformLocation(program, 'uProjectionMatrix'),
-        modelViewMatrix: gl.getUniformLocation(program, 'uModelViewMatrix'),
+        projectionMatrix: gl.getUniformLocation(program, 'u_projectionMatrix'),
+        modelViewMatrix: gl.getUniformLocation(program, 'u_modelViewMatrix'),
       },
     };
 

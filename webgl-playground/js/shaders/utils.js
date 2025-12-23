@@ -28,10 +28,12 @@ export function createProgram(gl, vertexShader, fragmentShader) {
 export function initBuffers(gl) {
   const positionBuffer = initPositionBuffer(gl);
   const colorBuffer = initColorBuffer(gl);
+  const textureCoordBuffer = initTextureCoordBuffer(gl);
 
   return {
     position: positionBuffer,
     color: colorBuffer,
+    textureCoord: textureCoordBuffer,
   };
 }
 
@@ -53,13 +55,9 @@ export function initPositionBuffer(gl) {
 }
 
 export function initColorBuffer(gl) {
-  // Create a buffer for the geometry's colors
   const colorBuffer = gl.createBuffer();
-
-  // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = colorBuffer)
   gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
 
-  // Now create an array of colors for the geometry
   const colors = [
     1.0,
     0.0,
@@ -79,10 +77,24 @@ export function initColorBuffer(gl) {
     1.0, // white
   ];
 
-  // Now pass the list of colors into WebGL to color the geometry.
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
 
   return colorBuffer;
+}
+
+export function initTextureCoordBuffer(gl) {
+  const textureCoordBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
+
+  const textureCoordinates = [1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0];
+
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array(textureCoordinates),
+    gl.STATIC_DRAW,
+  );
+
+  return textureCoordBuffer;
 }
 
 function setPositionAttribute(gl, programInfo) {
@@ -108,14 +120,12 @@ function setPositionAttribute(gl, programInfo) {
 }
 
 function setColorAttribute(gl, programInfo) {
-  // Specify how to pull the data out of the colors buffer (ARRAY_BUFFER) into the vertexColor attribute
   const size = 4;
   const type = gl.FLOAT;
   const normalize = false;
   const stride = 0;
   const offset = 0;
 
-  // Tell the attribute how to get data out of colors buffer (ARRAY_BUFFER)
   gl.vertexAttribPointer(
     programInfo.attributeLocations.vertexColor,
     size,
@@ -125,17 +135,36 @@ function setColorAttribute(gl, programInfo) {
     offset,
   );
 
-  // Turn on the color attribute
   gl.enableVertexAttribArray(programInfo.attributeLocations.vertexColor);
 }
 
+function setTextureCoordAttribute(gl, programInfo) {
+  const size = 2;
+  const type = gl.FLOAT;
+  const normalize = false;
+  const stride = 0;
+  const offset = 0;
+
+  gl.vertexAttribPointer(
+    programInfo.attributeLocations.textureCoord,
+    size,
+    type,
+    normalize,
+    stride,
+    offset,
+  );
+
+  gl.enableVertexAttribArray(programInfo.attributeLocations.textureCoord);
+}
+
 export function createVertexAttributeState(gl, programInfo) {
-  // Before we render a geometry, we need to create the buffer that contains its vertex positions and put the vertex positions in it
+  // Before we render a geometry, we need to create the buffer that contains its vertex positions and put them into it
   const buffers = initBuffers(gl);
 
-  // Create a vertex array object (attribute state).
-  // The vertex array object is a GPU-side object that contains the vertex attributes and the vertex buffer.
-  // It is used to store the attribute state for a given set of vertices.
+  /* Create a vertex array object (attribute state).
+   * The vertex array object is a GPU-side object that contains all the vertex attributes and the vertex buffer objects.
+   * It is used to store the attribute state for a given set of vertices.
+   */
   const vao = gl.createVertexArray();
 
   // Make it the one we're currently working with, so that all of our attribute settings will apply to that set of attribute state
@@ -143,15 +172,48 @@ export function createVertexAttributeState(gl, programInfo) {
 
   // Bind the position buffer to ARRAY_BUFFER
   gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-
   // Tell WebGL how to pull out the positions from the position buffer into the vertexPosition attribute
   setPositionAttribute(gl, programInfo);
 
   // Bind the color buffer to ARRAY_BUFFER
   gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
-
   // Tell WebGL how to pull out the colors from the color buffer into the vertexColor attribute
   setColorAttribute(gl, programInfo);
+
+  // Bind the texture coordinate buffer to ARRAY_BUFFER
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.textureCoord);
+  // Tell WebGL how to pull out the texture coordinates from the texture buffer into the textureCoord attribute
+  setTextureCoordAttribute(gl, programInfo);
+}
+
+function setProjectionMatrix(gl) {
+  /* Create a perspective matrix, a special matrix that is used to simulate the distortion of perspective in a camera.
+   * Our field of view is 45 degrees, with a width/height ratio that matches the display size of the canvas
+   * and we only want to see objects between 0.1 units and 100 units away from the camera.
+   */
+  const fieldOfView = (45 * Math.PI) / 180; // in radians
+  const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+  const zNear = 0.1; // near plane
+  const zFar = 100.0; // far plane
+
+  const projectionMatrix = mat4.create();
+  mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
+
+  return projectionMatrix;
+}
+
+function setModelViewMatrix() {
+  // Set the drawing position to the "origin" point, which is the center of the scene
+  const modelViewMatrix = mat4.create();
+
+  // Now move the drawing position a bit to where we want to start drawing the square
+  mat4.translate(
+    modelViewMatrix, // destination matrix
+    modelViewMatrix, // matrix to translate
+    [-0.0, 0.0, -6.0], // translation vector
+  );
+
+  return modelViewMatrix;
 }
 
 export function drawScene(gl, programInfo) {
@@ -163,30 +225,12 @@ export function drawScene(gl, programInfo) {
   gl.enable(gl.DEPTH_TEST); // Enable depth testing
   gl.depthFunc(gl.LEQUAL); // Near things obscure far things
 
-  // Clear the canvas before we start drawing on it.
+  // Clear the canvas before we start drawing on it
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-  // Create a perspective matrix, a special matrix that is used to simulate the distortion of perspective in a camera.
-  // Our field of view is 45 degrees, with a width/height ratio that matches the display size of the canvas
-  // and we only want to see objects between 0.1 units and 100 units away from the camera.
-  const fieldOfView = (45 * Math.PI) / 180; // in radians
-  const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
-  const zNear = 0.1;
-  const zFar = 100.0;
-  const projectionMatrix = mat4.create();
+  const projectionMatrix = setProjectionMatrix(gl, programInfo);
 
-  // glMatrix always has the first argument as the destination to receive the result
-  mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
-
-  // Set the drawing position to the "identity" point, which is the center of the scene
-  const modelViewMatrix = mat4.create();
-
-  // Now move the drawing position a bit to where we want to start drawing the square
-  mat4.translate(
-    modelViewMatrix, // destination matrix
-    modelViewMatrix, // matrix to translate
-    [-0.0, 0.0, -6.0],
-  );
+  const modelViewMatrix = setModelViewMatrix(gl, programInfo);
 
   // Tell WebGL to use our program when drawing
   gl.useProgram(programInfo.program);
