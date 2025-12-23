@@ -1,0 +1,24 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  background: #0a0a0f;
+  overflow: auto;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+#canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
