@@ -20,6 +20,12 @@ pub fn to_json<T: Serializable>(data: &T) -> Option<String> {
     }
 }
 
+/// A serializer for JSON representation.
+///
+/// # Fields
+/// * `output` - The output string.
+/// * `field_index` - The index of the current field.
+/// * `array_index` - The index of the current array element.
 struct JsonSerializer {
     output: String,
     field_index: usize,
@@ -46,7 +52,26 @@ impl Serializer for JsonSerializer {
     }
 
     fn serialize_str(&mut self, value: &str) -> Result<(), SerializeError> {
-        write!(self.output, "\"{}\"", value).map_err(|e| SerializeError(e.to_string()))
+        return write!(self.output, "\"{}\"", escape_json_str(value))
+            .map_err(|e| SerializeError(e.to_string()));
+
+        fn escape_json_str(str: &str) -> String {
+            let mut escaped = String::with_capacity(str.len());
+
+            for char in str.chars() {
+                match char {
+                    '"' => escaped.push_str("\\\""),
+                    '\\' => escaped.push_str("\\\\"),
+                    '\n' => escaped.push_str("\\n"),
+                    '\r' => escaped.push_str("\\r"),
+                    '\t' => escaped.push_str("\\t"),
+                    char if char.is_control() => write!(escaped, "\\u{:04x}", char as u32).unwrap(),
+                    char => escaped.push(char),
+                }
+            }
+
+            escaped
+        }
     }
 
     fn serialize_bool(&mut self, value: bool) -> Result<(), SerializeError> {

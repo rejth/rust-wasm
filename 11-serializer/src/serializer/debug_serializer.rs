@@ -20,6 +20,12 @@ pub fn to_debug<T: Serializable>(data: &T) -> Option<String> {
     }
 }
 
+/// A serializer for debug representation.
+///
+/// # Fields
+/// * `output` - The output string.
+/// * `field_index` - The index of the current field.
+/// * `array_index` - The index of the current array element.
 struct DebugSerializer {
     output: String,
     field_index: usize,

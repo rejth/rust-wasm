@@ -1,5 +1,8 @@
 use super::core::{Serializable, SerializeError, Serializer};
 
+// ========================
+// Make primitive types serializable
+// ========================
 impl Serializable for i32 {
     fn serialize<S: Serializer>(&self, serializer: &mut S) -> Result<(), SerializeError> {
         serializer.serialize_i32(*self)
@@ -30,6 +33,9 @@ impl Serializable for bool {
     }
 }
 
+// ========================
+// Make a fixed-size array [T; N] serializable
+// ========================
 impl<T: Serializable, const N: usize> Serializable for [T; N] {
     fn serialize<S: Serializer>(&self, serializer: &mut S) -> Result<(), SerializeError> {
         serializer.serialize_array_start(N)?;
@@ -42,6 +48,9 @@ impl<T: Serializable, const N: usize> Serializable for [T; N] {
     }
 }
 
+// ========================
+// Make a Vec<T> serializable
+// ========================
 impl<T: Serializable> Serializable for Vec<T> {
     fn serialize<S: Serializer>(&self, serializer: &mut S) -> Result<(), SerializeError> {
         serializer.serialize_array_start(self.len())?;
@@ -54,6 +63,9 @@ impl<T: Serializable> Serializable for Vec<T> {
     }
 }
 
+// ========================
+// Make a (A, B) tuple serializable
+// ========================
 impl<A: Serializable, B: Serializable> Serializable for (A, B) {
     fn serialize<S: Serializer>(&self, serializer: &mut S) -> Result<(), SerializeError> {
         serializer.serialize_array_start(2)?;
@@ -63,6 +75,9 @@ impl<A: Serializable, B: Serializable> Serializable for (A, B) {
     }
 }
 
+// ========================
+// Make a custom `Person` struct serializable
+// ========================
 #[derive(Debug)]
 pub struct Person {
     pub name: String,
