@@ -18,7 +18,7 @@ impl AsciiString {
 
     // Create a new ASCII string from a byte slice with panic if non-ASCII characters are present
     pub fn from_bytes(bytes: impl AsRef<[u8]>) -> Self {
-        let str = AsciiString::try_from(bytes.as_ref());
+        let str = bytes.as_ref().try_into();
 
         match str {
             Ok(str) => str,
@@ -77,8 +77,7 @@ impl TryFrom<&[u8]> for AsciiString {
     type Error = AsciiError;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        let cow = String::from_utf8_lossy(bytes);
-        cow.as_ref().try_into()
+        String::from_utf8_lossy(bytes).as_ref().try_into()
     }
 }
 
@@ -197,6 +196,12 @@ mod tests {
     fn try_from_bytes_success() {
         let ascii = AsciiString::try_from(b"hello").unwrap();
         assert_eq!(&*ascii, "hello");
+    }
+
+    #[test]
+    fn from_bytes_literal_success() {
+        let ascii: AsciiString = ASCII_BYTES.into();
+        assert_eq!(&*ascii, ASCII_LIT);
     }
 
     #[test]
