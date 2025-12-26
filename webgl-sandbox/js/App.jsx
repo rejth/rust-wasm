@@ -18,7 +18,7 @@ export function App() {
     if (!gl) return;
 
     const image = new Image();
-    image.src = '../static/leaves.jpg';
+    image.src = '../static/flamingo.jpg';
 
     image.onload = () => {
       console.log('Image loaded');
