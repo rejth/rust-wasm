@@ -1,14 +1,6 @@
+const globals = require('globals');
 const { FlatCompat } = require('@eslint/eslintrc');
 const { configs: jsConfigs } = require('@eslint/js/src');
-
-const browserGlobals = {
-  console: 'readonly',
-  document: 'readonly',
-  window: 'readonly',
-  navigator: 'readonly',
-  location: 'readonly',
-  webglUtils: 'readonly',
-};
 
 const ignorePatterns = [
   'node_modules',
@@ -39,7 +31,10 @@ module.exports = [
   {
     files: ['**/*.js', '**/*.jsx'],
     languageOptions: {
-      globals: { ...browserGlobals },
+      globals: {
+        ...globals.browser,
+        webglUtils: 'readonly',
+      },
       ecmaVersion: 'latest',
       sourceType: 'module',
       parserOptions: {
