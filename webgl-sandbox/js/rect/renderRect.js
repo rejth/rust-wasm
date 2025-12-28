@@ -1,9 +1,4 @@
-import {
-  resizeCanvasToDisplaySize,
-  createShader,
-  createProgram,
-  createProjectionMatrix,
-} from '../core.js';
+import { resizeCanvasToDisplaySize, createShader, createProgram, createProjectionMatrix } from '../core.js';
 import vertexSource from './shaders/vertex.glsl';
 import fragmentSource from './shaders/fragment.glsl';
 
@@ -74,11 +69,7 @@ function initPositionBuffer(gl, x, y, width, height) {
 
   // Now pass the list of positions into WebGL to build the shape.
   // We do this by creating a Float32Array from the JavaScript array, then use it to fill the current buffer
-  gl.bufferData(
-    gl.ARRAY_BUFFER,
-    new Float32Array([x1, y1, x2, y1, x1, y2, x1, y2, x2, y1, x2, y2]),
-    gl.STATIC_DRAW,
-  );
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([x1, y1, x2, y1, x1, y2, x1, y2, x2, y1, x2, y2]), gl.STATIC_DRAW);
 
   return positionBuffer;
 }
@@ -92,14 +83,7 @@ function enablePositionAttribute(gl, programInfo) {
   const offset = 0; // start at the beginning of the buffer - how many bytes inside the buffer to start from
 
   // Tell the attribute how to get data out of position buffer (ARRAY_BUFFER)
-  gl.vertexAttribPointer(
-    programInfo.attributeLocations.vertexPosition,
-    size,
-    type,
-    normalize,
-    stride,
-    offset,
-  );
+  gl.vertexAttribPointer(programInfo.attributeLocations.vertexPosition, size, type, normalize, stride, offset);
 
   // Turn on the position attribute
   gl.enableVertexAttribArray(programInfo.attributeLocations.vertexPosition);
@@ -112,9 +96,7 @@ function initTextureCoordBuffer(gl) {
   // UV coordinates for the rectangle (used by the fragment shader)
   gl.bufferData(
     gl.ARRAY_BUFFER,
-    new Float32Array([
-      0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0,
-    ]),
+    new Float32Array([0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0]),
     gl.STATIC_DRAW,
   );
 
@@ -128,14 +110,7 @@ function enableTextureCoordAttribute(gl, programInfo) {
   const stride = 0;
   const offset = 0;
 
-  gl.vertexAttribPointer(
-    programInfo.attributeLocations.textureCoord,
-    size,
-    type,
-    normalize,
-    stride,
-    offset,
-  );
+  gl.vertexAttribPointer(programInfo.attributeLocations.textureCoord, size, type, normalize, stride, offset);
 
   gl.enableVertexAttribArray(programInfo.attributeLocations.textureCoord);
 }
@@ -151,11 +126,7 @@ function drawScene(gl, programInfo) {
 
   // Set projection matrix
   const projection = createProjectionMatrix(gl.canvas.width, gl.canvas.height);
-  gl.uniformMatrix3fv(
-    programInfo.uniformLocations.projection,
-    false,
-    projection,
-  );
+  gl.uniformMatrix3fv(programInfo.uniformLocations.projection, false, projection);
 
   // Draw the geometry
   {

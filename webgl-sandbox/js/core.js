@@ -8,8 +8,7 @@ export function resizeCanvasToDisplaySize(canvas) {
   const displayWidth = Math.floor(canvas.clientWidth * dpr);
   const displayHeight = Math.floor(canvas.clientHeight * dpr);
 
-  const needResize =
-    canvas.width !== displayWidth || canvas.height !== displayHeight;
+  const needResize = canvas.width !== displayWidth || canvas.height !== displayHeight;
 
   if (needResize) {
     canvas.width = displayWidth;

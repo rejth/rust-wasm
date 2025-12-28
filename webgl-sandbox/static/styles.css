@@ -9,16 +9,88 @@ body {
   width: 100%;
   min-height: 100%;
   background: #0a0a0f;
-  overflow: auto;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  overflow: hidden;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
 }
 
 #root {
   min-height: 100vh;
 }
 
-#canvas {
-  display: block;
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: #c8ccd4;
+  font-size: 18px;
+}
+
+.app-container {
+  display: flex;
   width: 100vw;
   height: 100vh;
+  overflow: hidden;
+}
+
+#canvas {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  height: 100vh;
+  background: #0a0a0f;
+}
+
+.effects-panel {
+  width: 220px;
+  min-width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 20px;
+  background: linear-gradient(180deg, #f8f9fb 0%, #eef1f5 100%);
+  border-left: 1px solid #d1d5db;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.effects-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #d1d5db;
+}
+
+.effect-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #1f2937;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 4px;
+  transition: background-color 0.12s ease;
+}
+
+.effect-checkbox:hover {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.effect-checkbox input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: #3b82f6;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.effect-name {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 13px;
 }

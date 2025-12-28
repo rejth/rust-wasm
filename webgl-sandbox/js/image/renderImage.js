@@ -1,204 +1,369 @@
-import {
-  resizeCanvasToDisplaySize,
-  createShader,
-  createProgram,
-  createProjectionMatrix,
-} from '../core.js';
 import vertexSource from './shaders/vertex.glsl';
 import fragmentSource from './shaders/fragment.glsl';
 
-export function renderTexture(gl, image) {
-  resizeCanvasToDisplaySize(gl.canvas);
+import { resizeCanvasToDisplaySize, createShader, createProgram, createProjectionMatrix } from '../core.js';
 
-  const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
-  const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+export class RenderImage {
+  constructor(gl, image) {
+    if (RenderImage.instance) {
+      return RenderImage.instance;
+    }
 
-  const program = createProgram(gl, vertexShader, fragmentShader);
+    RenderImage.instance = this;
 
-  const programInfo = {
-    program,
-    attributeLocations: {
-      vertexPosition: gl.getAttribLocation(program, 'a_position'),
-      textureCoord: gl.getAttribLocation(program, 'a_uv'),
-    },
-    uniformLocations: {
-      projection: gl.getUniformLocation(program, 'u_projection'),
-      image: gl.getUniformLocation(program, 'u_image'),
-    },
-  };
+    this.gl = gl;
+    this.image = image;
 
-  const vao = gl.createVertexArray();
-  gl.bindVertexArray(vao);
+    const vertexShader = createShader(this.gl, this.gl.VERTEX_SHADER, vertexSource);
+    const fragmentShader = createShader(this.gl, this.gl.FRAGMENT_SHADER, fragmentSource);
+    const program = createProgram(this.gl, vertexShader, fragmentShader);
 
-  const { x, y, width, height } = shapeGeometry(gl, image);
+    this.programInfo = {
+      program,
+      attributeLocations: {
+        vertexPosition: this.gl.getAttribLocation(program, 'a_position'),
+        textureCoord: this.gl.getAttribLocation(program, 'a_uv'),
+      },
+      uniformLocations: {
+        projection: this.gl.getUniformLocation(program, 'u_projection'),
+        image: this.gl.getUniformLocation(program, 'u_image'),
+        kernel: this.gl.getUniformLocation(program, 'u_kernel[0]'),
+        kernelWeight: this.gl.getUniformLocation(program, 'u_kernelWeight'),
+      },
+    };
 
-  // Create the position buffer and set the position attribute
-  initPositionBuffer(gl, x, y, width, height);
-  enablePositionAttribute(gl, programInfo);
+    // Define convolution kernels
+    this.kernels = {
+      normal: [0, 0, 0, 0, 1, 0, 0, 0, 0],
+      gaussianBlur: [0.045, 0.122, 0.045, 0.122, 0.332, 0.122, 0.045, 0.122, 0.045],
+      gaussianBlur2: [1, 2, 1, 2, 4, 2, 1, 2, 1],
+      gaussianBlur3: [0, 1, 0, 1, 1, 1, 0, 1, 0],
+      unsharpen: [-1, -1, -1, -1, 9, -1, -1, -1, -1],
+      sharpness: [0, -1, 0, -1, 5, -1, 0, -1, 0],
+      sharpen: [-1, -1, -1, -1, 16, -1, -1, -1, -1],
+      edgeDetect: [-0.125, -0.125, -0.125, -0.125, 1, -0.125, -0.125, -0.125, -0.125],
+      edgeDetect2: [-1, -1, -1, -1, 8, -1, -1, -1, -1],
+      edgeDetect3: [-5, 0, 0, 0, 0, 0, 0, 0, 5],
+      edgeDetect4: [-1, -1, -1, 0, 0, 0, 1, 1, 1],
+      edgeDetect5: [-1, -1, -1, 2, 2, 2, -1, -1, -1],
+      edgeDetect6: [-5, -5, -5, -5, 39, -5, -5, -5, -5],
+      sobelHorizontal: [1, 2, 1, 0, 0, 0, -1, -2, -1],
+      sobelVertical: [1, 0, -1, 2, 0, -2, 1, 0, -1],
+      previtHorizontal: [1, 1, 1, 0, 0, 0, -1, -1, -1],
+      previtVertical: [1, 0, -1, 1, 0, -1, 1, 0, -1],
+      boxBlur: [0.111, 0.111, 0.111, 0.111, 0.111, 0.111, 0.111, 0.111, 0.111],
+      triangleBlur: [0.0625, 0.125, 0.0625, 0.125, 0.25, 0.125, 0.0625, 0.125, 0.0625],
+      emboss: [-2, -1, 0, -1, 1, 1, 0, 1, 2],
+    };
+  }
 
-  // Create the texture coordinate buffer and set the texture coordinate attribute
-  initTextureCoordBuffer(gl);
-  enableTextureCoordAttribute(gl, programInfo);
+  drawImage(effects) {
+    resizeCanvasToDisplaySize(this.gl.canvas);
 
-  // Create the texture and bind it to the texture unit
-  createTexture(gl, image);
+    // Vertex array object for framebuffer passes (full-texture quad at image dimensions)
+    // Uses flipped UV coords because framebuffer textures are Y-inverted
+    this.setFrameBufferAttributeState();
 
-  // Draw the scene
-  drawScene(gl, programInfo);
-}
+    // Vertex array object for canvas display (centered, scaled geometry)
+    this.setCanvasAttributeState();
 
-function shapeGeometry(gl, image) {
-  // Get device pixel ratio to convert between CSS pixels and canvas pixels
-  const dpr = window.devicePixelRatio || 1;
+    // Create the texture and upload the image to it
+    this.originalTexture = this.createTexture();
+    this.uploadImageToTexture(this.image);
 
-  // Calculate image size in canvas pixels (accounting for DPR)
-  // The image's natural size should be multiplied by DPR to match canvas scale
-  const imageWidth = image.width * dpr;
-  const imageHeight = image.height * dpr;
+    // Create 2 more textures for effects and attach them to frame buffer objects
+    const { textures, frameBuffers } = this.generateTextures();
+    this.textures = textures;
+    this.frameBuffers = frameBuffers;
 
-  // Scale image down only if it is too large (80% of canvas)
-  const maxSize = Math.min(gl.canvas.width, gl.canvas.height) * 0.8;
-  const scale = Math.min(1, maxSize / Math.max(imageWidth, imageHeight));
+    // Get enabled effects
+    const enabledEffects = effects.filter((e) => e.on);
 
-  const width = imageWidth * scale;
-  const height = imageHeight * scale;
-  const centerX = gl.canvas.width / 2;
-  const centerY = gl.canvas.height / 2;
-  const x = centerX - width / 2;
-  const y = centerY - height / 2;
+    // Draw the effects to the canvas
+    this.drawEffects(enabledEffects);
+  }
 
-  return { x, y, width, height };
-}
+  drawEffects(effects) {
+    const { program, uniformLocations } = this.programInfo;
 
-function initPositionBuffer(gl, x, y, width, height) {
-  const positionBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    // Tell WebGL to use our program (pair of shaders)
+    this.gl.useProgram(program);
 
-  const x1 = x;
-  const x2 = x + width;
-  const y1 = y;
-  const y2 = y + height;
+    // Start with the original image texture on unit 0
+    this.gl.activeTexture(this.gl.TEXTURE0);
+    this.gl.bindTexture(this.gl.TEXTURE_2D, this.originalTexture);
+    this.gl.uniform1i(uniformLocations.image, 0);
 
-  gl.bufferData(
-    gl.ARRAY_BUFFER,
-    new Float32Array([x1, y1, x2, y1, x1, y2, x1, y2, x2, y1, x2, y2]),
-    gl.STATIC_DRAW,
-  );
-}
+    // Use the frame buffer attribute state for framebuffer passes
+    this.gl.bindVertexArray(this.frameBufferVertexArray);
 
-function enablePositionAttribute(gl, programInfo) {
-  // Specify how to pull the data out of the positions buffer (ARRAY_BUFFER) into the vertexPosition attribute
-  const size = 2; // pull out 2 values per iteration
-  const type = gl.FLOAT; // the data in the buffer is 32bit floats
-  const normalize = false; // don't normalize the data
-  const stride = 0; // 0 = move forward size * sizeof(type) each iteration to get the next position
-  const offset = 0; // start at the beginning of the buffer - how many bytes inside the buffer to start from
+    // Set projection for image-sized framebuffers
+    const frameBufferProjection = createProjectionMatrix(this.image.width, this.image.height);
+    this.gl.uniformMatrix3fv(uniformLocations.projection, false, frameBufferProjection);
 
-  // Tell the attribute how to get data out of position buffer (ARRAY_BUFFER)
-  gl.vertexAttribPointer(
-    programInfo.attributeLocations.vertexPosition,
-    size,
-    type,
-    normalize,
-    stride,
-    offset,
-  );
+    // Apply each effect in sequence using ping-pong framebuffers
+    let count = 0;
+    for (let i = 0; i < effects.length; i++) {
+      // Render to the appropriate framebuffer
+      this.setFrameBuffer(this.frameBuffers[count % 2], this.image.width, this.image.height);
 
-  // Turn on the position attribute
-  gl.enableVertexAttribArray(programInfo.attributeLocations.vertexPosition);
-}
+      // Apply this effect's kernel
+      this.drawWithKernel(effects[i].name);
 
-function initTextureCoordBuffer(gl) {
-  const textureCoordBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
+      // Use the result as input for the next pass
+      this.gl.bindTexture(this.gl.TEXTURE_2D, this.textures[count % 2]);
 
-  // UV coordinates for the rectangle (used by the fragment shader)
-  gl.bufferData(
-    gl.ARRAY_BUFFER,
-    new Float32Array([
-      0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0,
-    ]),
-    gl.STATIC_DRAW,
-  );
+      count++;
+    }
 
-  return textureCoordBuffer;
-}
+    // Final pass: render to canvas with the canvas attribute state
+    this.gl.bindVertexArray(this.canvasVertexArray);
 
-function enableTextureCoordAttribute(gl, programInfo) {
-  const size = 2;
-  const type = gl.FLOAT;
-  const normalize = false;
-  const stride = 0;
-  const offset = 0;
+    // Set projection for canvas
+    const canvasProjection = createProjectionMatrix(this.gl.canvas.width, this.gl.canvas.height);
+    this.gl.uniformMatrix3fv(uniformLocations.projection, false, canvasProjection);
 
-  gl.vertexAttribPointer(
-    programInfo.attributeLocations.textureCoord,
-    size,
-    type,
-    normalize,
-    stride,
-    offset,
-  );
+    // Bind the default framebuffer (canvas)
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    // Tell WebGL how to convert from clip space to pixels
+    this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
 
-  gl.enableVertexAttribArray(programInfo.attributeLocations.textureCoord);
-}
+    // Clear the canvas
+    this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 
-function createTexture(gl, image) {
-  const texture = gl.createTexture();
+    // Draw the final result with the default kernel
+    this.drawWithKernel();
+  }
 
-  // Make unit 0 the active texture unit (i.e, the unit all other texture commands will affect)
-  gl.activeTexture(gl.TEXTURE0 + 0);
+  shapeGeometry() {
+    // Get device pixel ratio to convert between CSS pixels and canvas pixels
+    const dpr = window.devicePixelRatio || 1;
 
-  // Bind texture to 'texture unit '0' 2D bind point
-  gl.bindTexture(gl.TEXTURE_2D, texture);
+    // Calculate image size in canvas pixels (accounting for DPR)
+    // The image's natural size should be multiplied by DPR to match canvas scale
+    const imageWidth = this.image.width * dpr;
+    const imageHeight = this.image.height * dpr;
 
-  // Set the parameters so we don't need mips and so we're not filtering and we don't repeat
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    // Scale image down only if it is too large (80% of canvas)
+    const maxSize = Math.min(this.gl.canvas.width, this.gl.canvas.height) * 0.8;
+    const scale = Math.min(1, maxSize / Math.max(imageWidth, imageHeight));
 
-  const mipLevel = 0; // the largest mip
-  const internalFormat = gl.RGBA; // format we want in the texture
-  const srcFormat = gl.RGBA; // format of data we are supplying
-  const srcType = gl.UNSIGNED_BYTE; // type of data we are supplying
+    const width = imageWidth * scale;
+    const height = imageHeight * scale;
+    const centerX = this.gl.canvas.width / 2;
+    const centerY = this.gl.canvas.height / 2;
+    const x = centerX - width / 2;
+    const y = centerY - height / 2;
 
-  // Upload the image into the texture
-  gl.texImage2D(
-    gl.TEXTURE_2D,
-    mipLevel,
-    internalFormat,
-    srcFormat,
-    srcType,
-    image,
-  );
-}
+    return { x, y, width, height };
+  }
 
-function drawScene(gl, programInfo) {
-  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-  gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear to black, fully opaque
-  gl.clearDepth(1.0); // Clear everything
-  gl.enable(gl.DEPTH_TEST); // Enable depth testing
-  gl.depthFunc(gl.LEQUAL); // Near things obscure far things
+  createTexture() {
+    const texture = this.gl.createTexture();
+    this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
 
-  gl.useProgram(programInfo.program);
+    // Set up texture so we can render any size image and so we are working with pixels directly
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
 
-  // Create and set the projection matrix so we can convert from pixels to clip space in the shader
-  const projection = createProjectionMatrix(gl.canvas.width, gl.canvas.height);
-  gl.uniformMatrix3fv(
-    programInfo.uniformLocations.projection,
-    false,
-    projection,
-  );
+    return texture;
+  }
 
-  // Tell the shader to get the texture from texture unit 0
-  gl.uniform1i(programInfo.uniformLocations.image, 0);
+  uploadImageToTexture(image) {
+    const mipLevel = 0; // the largest mip
+    const internalFormat = this.gl.RGBA; // format we want in the texture
+    const srcFormat = this.gl.RGBA; // format of data we are supplying
+    const srcType = this.gl.UNSIGNED_BYTE; // type of data we are supplying
 
-  // Draw the geometry
-  {
-    const primitiveType = gl.TRIANGLES;
+    // Upload the image into the texture
+    this.gl.texImage2D(this.gl.TEXTURE_2D, mipLevel, internalFormat, srcFormat, srcType, image);
+  }
+
+  setFrameBufferAttributeState() {
+    /* Create a vertex array object (attribute state).
+     * The vertex array object is a GPU-side object that contains all the vertex attributes and the vertex buffer objects.
+     * It is used as to store the attribute state for a given set of vertices.
+     */
+    this.frameBufferVertexArray = this.gl.createVertexArray();
+    this.gl.bindVertexArray(this.frameBufferVertexArray);
+
+    // Create the position buffer, put the positions into it and enable the position attribute so shader can access it
+    this.setPositionBuffer(0, 0, this.image.width, this.image.height);
+    this.enablePositionAttribute();
+
+    // Create the texture coordinate buffer, put the texture coordinates into it and enable the texture coordinate attribute so shader can access it
+    this.setTextureCoordBufferFlipped();
+    this.enableTextureCoordAttribute();
+  }
+
+  setCanvasAttributeState() {
+    /* Create a vertex array object (attribute state).
+     * The vertex array object is a GPU-side object that contains all the vertex attributes and the vertex buffer objects.
+     * It is used as to store the attribute state for a given set of vertices.
+     */
+    this.canvasVertexArray = this.gl.createVertexArray();
+    this.gl.bindVertexArray(this.canvasVertexArray);
+
+    const { x, y, width, height } = this.shapeGeometry();
+
+    // Create the position buffer, put the positions into it and enable the position attribute so shader can access it
+    this.setPositionBuffer(x, y, width, height);
+    this.enablePositionAttribute();
+
+    // Create the texture coordinate buffer, put the texture coordinates into it and enable the texture coordinate attribute so shader can access it
+    this.setTextureCoordBuffer();
+    this.enableTextureCoordAttribute();
+  }
+
+  setPositionBuffer(x, y, width, height) {
+    const positionBuffer = this.gl.createBuffer();
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, positionBuffer);
+
+    const x1 = x;
+    const x2 = x + width;
+    const y1 = y;
+    const y2 = y + height;
+
+    this.gl.bufferData(
+      this.gl.ARRAY_BUFFER,
+      new Float32Array([x1, y1, x2, y1, x1, y2, x1, y2, x2, y1, x2, y2]),
+      this.gl.STATIC_DRAW,
+    );
+
+    return positionBuffer;
+  }
+
+  enablePositionAttribute() {
+    // Specify how to pull the data out of the positions buffer (ARRAY_BUFFER) into the vertexPosition attribute
+    const size = 2; // pull out 2 values per iteration
+    const type = this.gl.FLOAT; // the data in the buffer is 32bit floats
+    const normalize = false; // don't normalize the data
+    const stride = 0; // 0 = move forward size * sizeof(type) each iteration to get the next position
+    const offset = 0; // start at the beginning of the buffer - how many bytes inside the buffer to start from
+
+    const {
+      attributeLocations: { vertexPosition },
+    } = this.programInfo;
+
+    // Tell the attribute how to get data out of position buffer (ARRAY_BUFFER)
+    this.gl.vertexAttribPointer(vertexPosition, size, type, normalize, stride, offset);
+
+    // Turn on the position attribute
+    this.gl.enableVertexAttribArray(vertexPosition);
+  }
+
+  setTextureCoordBufferFlipped() {
+    const textureCoordBuffer = this.gl.createBuffer();
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, textureCoordBuffer);
+
+    // UV coordinates flipped on Y axis for framebuffer textures (framebuffers store textures Y-inverted)
+    this.gl.bufferData(
+      this.gl.ARRAY_BUFFER,
+      new Float32Array([0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0]),
+      this.gl.STATIC_DRAW,
+    );
+
+    return textureCoordBuffer;
+  }
+
+  setTextureCoordBuffer() {
+    const textureCoordBuffer = this.gl.createBuffer();
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, textureCoordBuffer);
+
+    // UV coordinates for the rectangle (used by the fragment shader)
+    this.gl.bufferData(
+      this.gl.ARRAY_BUFFER,
+      new Float32Array([0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0]),
+      this.gl.STATIC_DRAW,
+    );
+
+    return textureCoordBuffer;
+  }
+
+  enableTextureCoordAttribute() {
+    const size = 2;
+    const type = this.gl.FLOAT;
+    const normalize = false;
+    const stride = 0;
+    const offset = 0;
+
+    const {
+      attributeLocations: { textureCoord },
+    } = this.programInfo;
+
+    // Tell the attribute how to get data out of position buffer (ARRAY_BUFFER)
+    this.gl.vertexAttribPointer(textureCoord, size, type, normalize, stride, offset);
+
+    // Turn on the texture coordinate attribute
+    this.gl.enableVertexAttribArray(textureCoord);
+  }
+
+  generateTextures() {
+    const textures = [];
+    const frameBuffers = [];
+
+    for (let i = 0; i < 2; ++i) {
+      const texture = this.createTexture();
+      textures.push(texture);
+
+      // Make the texture the same size as the image
+      const mipLevel = 0; // the largest mip
+      const internalFormat = this.gl.RGBA; // format we want in the texture
+      const border = 0; // must be 0
+      const srcFormat = this.gl.RGBA; // format of data we are supplying
+      const srcType = this.gl.UNSIGNED_BYTE; // type of data we are supplying
+      const data = null; // no data = create a blank texture
+
+      this.gl.texImage2D(
+        this.gl.TEXTURE_2D,
+        mipLevel,
+        internalFormat,
+        this.image.width,
+        this.image.height,
+        border,
+        srcFormat,
+        srcType,
+        data,
+      );
+
+      // Create a frame buffer object
+      const frameBuffer = this.gl.createFramebuffer();
+      frameBuffers.push(frameBuffer);
+      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, frameBuffer);
+
+      // Attach a texture to it
+      const attachmentPoint = this.gl.COLOR_ATTACHMENT0;
+      this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, attachmentPoint, this.gl.TEXTURE_2D, texture, mipLevel);
+    }
+
+    return { textures, frameBuffers };
+  }
+
+  setFrameBuffer(frameBuffer, width, height) {
+    // Make this the frame buffer object we are rendering to
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, frameBuffer);
+
+    // Tell WebGL how to convert from clip space to pixels
+    this.gl.viewport(0, 0, width, height);
+  }
+
+  drawWithKernel(name = 'normal') {
+    // Set the kernel and it's weight
+    this.gl.uniform1fv(this.programInfo.uniformLocations.kernel, this.kernels[name]);
+    this.gl.uniform1f(this.programInfo.uniformLocations.kernelWeight, this.computeKernelWeight(this.kernels[name]));
+
+    // Draw the geometry
+    const primitiveType = this.gl.TRIANGLES;
     const offset = 0;
     const vertexCount = 6;
-    gl.drawArrays(primitiveType, offset, vertexCount);
+    this.gl.drawArrays(primitiveType, offset, vertexCount);
+  }
+
+  computeKernelWeight(kernel) {
+    const weight = kernel.reduce((prev, curr) => prev + curr, 0);
+    return weight <= 0 ? 1 : weight;
   }
 }

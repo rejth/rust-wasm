@@ -1,19 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
 
-import { renderTexture } from './image/renderImage.js';
-// import { renderRect } from './rect/renderRect.js';
+import { RenderImage } from './image/RenderImage.js';
 import initWasmModule from '../pkg/webgl_playground.js';
+import { Effects } from './image/Effects.jsx';
 
 export function App() {
   const canvasRef = useRef(null);
   const [ready, setReady] = useState(false);
+  const [effects, setEffects] = useState([]);
 
   useEffect(() => {
     initWasmModule().then(() => setReady(true));
   }, []);
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || !ready) return;
+
     const gl = canvasRef.current.getContext('webgl2');
     if (!gl) return;
 
@@ -21,16 +23,22 @@ export function App() {
     image.src = '../static/flamingo.jpg';
 
     image.onload = () => {
-      console.log('Image loaded');
-      renderTexture(gl, image);
-    };
+      const renderer = new RenderImage(gl, image);
+      const effects = Object.keys(renderer.kernels).map((name) => ({ name, on: false }));
 
-    // renderRect(gl);
+      renderer.drawImage(effects);
+      setEffects(effects);
+    };
   }, [ready]);
 
   if (!ready) {
-    return <div>Loading...</div>;
+    return <div className="loading">Loading...</div>;
   }
 
-  return <canvas ref={canvasRef} id="canvas" />;
+  return (
+    <div className="app-container">
+      <canvas ref={canvasRef} id="canvas" />
+      <Effects effects={effects} />
+    </div>
+  );
 }
