@@ -1,25 +1,8 @@
+const globals = require('globals');
 const { FlatCompat } = require('@eslint/eslintrc');
 const { configs: jsConfigs } = require('@eslint/js/src');
 
-const browserGlobals = {
-  console: 'readonly',
-  document: 'readonly',
-  window: 'readonly',
-  navigator: 'readonly',
-  location: 'readonly',
-  webglUtils: 'readonly',
-};
-
-const ignorePatterns = [
-  'node_modules',
-  'dist',
-  'pkg',
-  'target',
-  'src',
-  'tests',
-  'static',
-  'eslint.config.cjs',
-];
+const ignorePatterns = ['node_modules', 'dist', 'pkg', 'target', 'src', 'tests', 'static', 'eslint.config.cjs'];
 
 const compat = new FlatCompat({
   baseDirectory: __dirname,
@@ -31,15 +14,14 @@ module.exports = [
   {
     ignores: ignorePatterns,
   },
-  ...compat.extends(
-    'eslint:recommended',
-    'plugin:react/recommended',
-    'plugin:react/jsx-runtime',
-  ),
+  ...compat.extends('eslint:recommended', 'plugin:react/recommended', 'plugin:react/jsx-runtime'),
   {
     files: ['**/*.js', '**/*.jsx'],
     languageOptions: {
-      globals: { ...browserGlobals },
+      globals: {
+        ...globals.browser,
+        webglUtils: 'readonly',
+      },
       ecmaVersion: 'latest',
       sourceType: 'module',
       parserOptions: {

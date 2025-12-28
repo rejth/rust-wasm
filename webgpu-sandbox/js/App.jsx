@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 
-import init from '../pkg/webgpu_sandbox.js';
+import initWasmModule from '../pkg/webgpu_sandbox.js';
 
 export function App() {
   const canvasRef = useRef(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    init().then(() => setReady(true));
+    initWasmModule().then(() => setReady(true));
   }, []);
 
   useEffect(() => {
@@ -18,5 +18,9 @@ export function App() {
     return <div>Loading...</div>;
   }
 
-  return <canvas ref={canvasRef} id="canvas" />;
+  return (
+    <div className="app-container">
+      <canvas ref={canvasRef} id="canvas" />
+    </div>
+  );
 }
