@@ -21,6 +21,8 @@ module.exports = [
       globals: {
         ...globals.browser,
         webglUtils: 'readonly',
+        GPUBufferUsage: 'readonly',
+        GPUShaderStage: 'readonly',
       },
       ecmaVersion: 'latest',
       sourceType: 'module',

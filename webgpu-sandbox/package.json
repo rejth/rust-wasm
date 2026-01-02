@@ -7,7 +7,7 @@
     "build": "wasm-pack build --target web --release && vite build",
     "preview": "vite preview",
     "test": "cargo test && wasm-pack test --headless",
-    "format": "cargo fmt && prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md,glsl}\"",
+    "format": "cargo fmt && prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md,glsl,wgsl}\"",
     "lint": "eslint \"./js\" --ext .js,.jsx"
   },
   "dependencies": {
