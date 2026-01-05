@@ -1,6 +1,6 @@
 # Implementation of the AsciiString type
 
-Implement a `AsciiString` struct that represents an **owned**, **mutable** string containing only ASCII characters (bytes from 0 to 127 inclusive).
+Implement a `AsciiString` structure that represents an **owned**, **mutable** string containing only ASCII characters (bytes from 0 to 127 inclusive).
 
 ## Requirements
 

@@ -13,7 +13,7 @@ Supported cell types: integers (`i64`), floats (`f64`), booleans, and strings.
 
 Organize the library into logical modules.
 
-Example usage:
+## Example usage
 
 ```rust
 use tinycsv_db::*;

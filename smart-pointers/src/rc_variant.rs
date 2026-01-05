@@ -242,10 +242,6 @@ mod tests {
         Task::add_subtask(&child, &grandchild2);
         Task::add_subtask(&grandchild1, &great_grandchild);
 
-        // Move child (which has subtasks) to root
-        // (Note: child is already under root, so this is a no-op structurally,
-        // but tests that subtasks are preserved)
-        // Actually, let's move grandchild1 (which has great_grandchild) to root
         let result = Task::move_to(&grandchild1, &root);
 
         assert!(result.is_ok());
