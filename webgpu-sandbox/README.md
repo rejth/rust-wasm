@@ -1,4 +1,10 @@
-# How to install
+# WebGPU Sandbox
+
+This project uses **[wasm-pack](https://github.com/drager/wasm-pack)** to build Rust code to WebAssembly and follows the **[rust-webpack template](https://github.com/drager/rust-webpack-template)** structure (this project uses Vite instead of Webpack).
+
+See the [wasm-pack documentation](https://drager.github.io/wasm-pack/book/introduction.html) for more information.
+
+## How to install
 
 ```sh
 npm install
@@ -8,7 +14,7 @@ npm install
 
 ```sh
 # Builds the project and opens it in a new browser tab. Auto-reloads when the project changes.
-npm start
+npm run dev
 ```
 
 ## How to build in release mode
@@ -21,14 +27,8 @@ npm run build
 ## How to run unit tests
 
 ```sh
-# Runs tests in Firefox
-npm test -- --firefox
-
-# Runs tests in Chrome
-npm test -- --chrome
-
-# Runs tests in Safari
-npm test -- --safari
+# Runs tests using wasm-pack test
+npm test
 ```
 
 ## What does each file do?

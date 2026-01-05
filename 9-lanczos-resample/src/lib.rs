@@ -1,7 +1,7 @@
 use wasm_bindgen::prelude::*;
 use web_sys::{
-    console, CanvasRenderingContext2d, HtmlCanvasElement, ImageBitmap, ImageData, OffscreenCanvas,
-    OffscreenCanvasRenderingContext2d,
+    CanvasRenderingContext2d, HtmlCanvasElement, ImageBitmap, ImageData, OffscreenCanvas,
+    OffscreenCanvasRenderingContext2d, console,
 };
 
 #[cfg(feature = "wee_alloc")]
