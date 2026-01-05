@@ -54,14 +54,12 @@ fn main() {
     // Mark root task complete
     root.borrow_mut().complete();
     println!("Root task completed: {}", root_task.borrow().is_completed); // true
-    // Check all subtasks are completed
-    assert!(
-        root_task
-            .borrow()
-            .subtasks
-            .iter()
-            .all(|subtask| subtask.borrow().is_completed)
-    );
+                                                                          // Check all subtasks are completed
+    assert!(root_task
+        .borrow()
+        .subtasks
+        .iter()
+        .all(|subtask| subtask.borrow().is_completed));
 
     // Before deletion - child has 3 strong references:
     // 1. `child` variable
