@@ -3,12 +3,15 @@ use std::{
     rc::{Rc, Weak},
 };
 
+pub type TaskRc = Rc<RefCell<Task>>;
+pub type TaskWeak = Weak<RefCell<Task>>;
+
 #[derive(Debug)]
 pub struct Task {
     pub title: String,
     pub is_completed: bool,
-    pub subtasks: Vec<Rc<RefCell<Task>>>,
-    pub parent: Option<Weak<RefCell<Task>>>,
+    pub subtasks: Vec<TaskRc>,
+    pub parent: Option<TaskWeak>,
 }
 
 impl PartialEq for Task {
@@ -22,7 +25,7 @@ impl PartialEq for Task {
 }
 
 impl Task {
-    pub fn new(title: &str) -> Rc<RefCell<Self>> {
+    pub fn new(title: &str) -> TaskRc {
         Rc::new(RefCell::new(Self {
             title: title.to_string(),
             is_completed: false,
@@ -31,20 +34,18 @@ impl Task {
         }))
     }
 
-    pub fn add_subtask(self_rc: &Rc<RefCell<Self>>, task: &Rc<RefCell<Task>>) {
-        self_rc.borrow_mut().subtasks.push(task.clone());
-        task.borrow_mut().parent = Some(Rc::downgrade(self_rc));
+    pub fn add_subtask(self_rc: &TaskRc, subtask: &TaskRc) {
+        self_rc.borrow_mut().subtasks.push(subtask.clone());
+        subtask.borrow_mut().parent = Some(Rc::downgrade(self_rc));
     }
 
-    pub fn move_to(
-        self_rc: &Rc<RefCell<Self>>,
-        new_parent: &Rc<RefCell<Self>>,
-    ) -> Result<(), String> {
+    pub fn move_to(self_rc: &TaskRc, new_parent: &TaskRc) -> Result<(), String> {
         // Get current parent
-        let parent = {
-            let borrowed = self_rc.borrow();
-            borrowed.parent.as_ref().and_then(|weak| weak.upgrade())
-        };
+        let parent = self_rc
+            .borrow()
+            .parent
+            .as_ref()
+            .and_then(|weak| weak.upgrade());
 
         // Remove from current parent (without deleting subtasks)
         if let Some(parent) = parent {
@@ -65,14 +66,9 @@ impl Task {
         Ok(())
     }
 
-    pub fn delete_self(self_rc: &Rc<RefCell<Self>>) -> Result<(), String> {
+    pub fn delete_self(self_rc: &TaskRc) -> Result<(), String> {
         // Recursively delete all subtasks
-        let subtasks = {
-            let borrowed = self_rc.borrow();
-            borrowed.subtasks.clone()
-        };
-
-        for subtask in subtasks {
+        for subtask in self_rc.borrow_mut().subtasks.iter_mut() {
             // For subtasks we just clear parent and recursively delete their subtasks
             subtask.borrow_mut().parent = None;
             // Call deletion of content (but not from parent, since parent = None)
@@ -105,13 +101,8 @@ impl Task {
         Err(format!("Task {} has no parent", self_rc.borrow().title))
     }
 
-    fn delete_subtasks(self_rc: &Rc<RefCell<Self>>) {
-        let subtasks = {
-            let borrowed = self_rc.borrow();
-            borrowed.subtasks.clone()
-        };
-
-        for subtask in subtasks {
+    pub fn delete_subtasks(self_rc: &TaskRc) {
+        for subtask in self_rc.borrow_mut().subtasks.iter_mut() {
             subtask.borrow_mut().parent = None;
             Self::delete_subtasks(&subtask);
         }
@@ -132,9 +123,9 @@ impl Task {
         let mut current_parent = self.parent.as_ref().and_then(|weak| weak.upgrade());
 
         while let Some(parent) = current_parent {
-            let p = parent.borrow();
-            path.push(p.title.clone());
-            current_parent = p.parent.as_ref().and_then(|weak| weak.upgrade());
+            let borrowed = parent.borrow();
+            path.push(borrowed.title.clone());
+            current_parent = borrowed.parent.as_ref().and_then(|weak| weak.upgrade());
         }
 
         path.reverse();
@@ -147,14 +138,14 @@ impl Task {
 
         while let Some(parent) = current_parent {
             depth += 1;
-            let p = parent.borrow();
-            current_parent = p.parent.as_ref().and_then(|weak| weak.upgrade());
+            let borrowed = parent.borrow();
+            current_parent = borrowed.parent.as_ref().and_then(|weak| weak.upgrade());
         }
 
         depth
     }
 
-    pub fn get_root(&self) -> Option<Rc<RefCell<Task>>> {
+    pub fn get_root(&self) -> Option<TaskRc> {
         let mut current_parent = self.parent.as_ref().and_then(|weak| weak.upgrade())?;
 
         loop {
@@ -177,20 +168,19 @@ mod tests {
 
     #[test]
     fn test_new() {
-        let task = Task::new("Root");
-
-        assert_eq!(task.borrow().title, "Root");
+        let root = Task::new("Root");
+        assert_eq!(root.borrow().title, "Root");
     }
 
     #[test]
     fn test_add_subtask() {
-        let task = Task::new("Root");
+        let root = Task::new("Root");
         let subtask = Task::new("Subtask");
 
-        Task::add_subtask(&task, &subtask);
+        Task::add_subtask(&root, &subtask);
 
-        assert_eq!(task.borrow().subtasks.len(), 1);
-        assert_eq!(task.borrow().subtasks[0].borrow().title, "Subtask");
+        assert_eq!(root.borrow().subtasks.len(), 1);
+        assert_eq!(subtask.borrow().title, "Subtask");
     }
 
     #[test]
@@ -362,8 +352,8 @@ mod tests {
     #[test]
     fn test_reference_counts() {
         struct TodoApp {
-            selected: Option<Rc<RefCell<Task>>>,
-            bookmarked: Option<Vec<Rc<RefCell<Task>>>>,
+            selected: Option<TaskRc>,
+            bookmarked: Option<Vec<TaskRc>>,
         }
 
         let mut app = TodoApp {
