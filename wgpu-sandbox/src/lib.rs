@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use wgpu::util::DeviceExt;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalPosition,
@@ -24,10 +25,63 @@ pub struct State {
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
-    render_pipeline: wgpu::RenderPipeline,
     clear_color: wgpu::Color,
+    render_pipeline: wgpu::RenderPipeline,
+    vertex_buffer: wgpu::Buffer,
+    num_vertices: u32,
+    index_buffer: wgpu::Buffer,
+    num_indices: u32,
     window: Arc<Window>,
     is_surface_configured: bool,
+}
+
+// TODO: Instancing, compute pipeline, bind group layout, bind groups, 2D camera, GPU-picking.
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct Vertex {
+    position: [f32; 3], // Represents the x, y, and z of the vertex in 3d space
+    color: [f32; 3],    // Represents the r, g, and b of the vertex color
+}
+
+impl Vertex {
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        // Vertex buffer layout defines how a buffer is represented in memory and tells the GPU how to interpret the vertex buffer (how to read the data from the buffer).
+        // Without this, the render pipeline has no idea how to map the buffer in the shader.
+        wgpu::VertexBufferLayout {
+            // The number of bytes the GPU needs to skip forward in the buffer when it's looking for the next vertex.
+            // Each vertex of our square is made up of three (x, y, z) 32-bit floating point numbers. A 32-bit float is 4 bytes, so three floats per vertex is 12 bytes per vertex.
+            // Since we store two attributes (position and color) in the vertex, the total stride is 24 bytes.
+            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            // Tells the pipeline whether each element of the array in this buffer represents per-vertex data or per-instance data.
+            // We can specify wgpu::VertexStepMode::Instance if we only want to change vertices when we start drawing a new instance.
+            step_mode: wgpu::VertexStepMode::Vertex,
+            // The attributes of the vertex buffer. An attribute is a single piece of data that is associated with a vertex. It is unique for each vertex.
+            attributes: &[
+                // The first attribute is the position.
+                wgpu::VertexAttribute {
+                    // This defines the offset in bytes until the attribute starts.
+                    // We really only have to worry about this if our buffer has more than one attribute in it.
+                    // For the first attribute, the offset is usually zero. For any later attributes, the offset is the sum over size_of of the previous attributes' data.
+                    offset: 0,
+                    // Tells the shader what location to store this attribute at.
+                    // shader_location is the index (0-15) of the attribute in the vertex shader - @location(0) in vertex shader
+                    shader_location: 0,
+                    // Tells the shader the shape of the attribute.
+                    // Float32x3 corresponds to vec3<f32> in shader code.
+                    // The max value we can store in an attribute is Float32x4 (Uint32x4, and Sint32x4 work as well).
+                    // We should keep this in mind for when we have to store things that are bigger than Float32x4.
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                // The second attribute is the color.
+                wgpu::VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    shader_location: 1,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+            ],
+        }
+    }
 }
 
 impl State {
@@ -103,12 +157,55 @@ impl State {
             desired_maximum_frame_latency: 2, // The desired maximum frame latency of the surface.
         };
 
-        // TODO: Specify vertices. Shape a geometry in clip space.
-        // TODO: Create a vertex buffer
-        // TODO: Create a vertex buffer layout
         /*
-          Vertex buffer layout tells the GPU how to interpret the vertex buffer (how to read the data from the buffer)
-        */
+         * Define the vertices in clip space. To draw a rectangle, we need to render 2 triangles (since a rectangle is made of 2 triangles).
+         * We arrange the vertices in counter-clockwise order: top-left, bottom-left, bottom-right, top-right.
+         * We do it this way partially out of tradition, but mostly because we specified in the primitive of the render_pipeline that we want the front_face of our geometry to be wgpu::FrontFace::Ccw so that we cull the back face.
+         * This means that any geometry that should be facing us should have its vertices in counter-clockwise order.
+         */
+        const VERTICES: &[Vertex] = &[
+            Vertex {
+                position: [-0.5, 0.5, 0.0],
+                color: [1.0, 0.0, 0.0],
+            }, // 0: Top-left
+            Vertex {
+                position: [-0.5, -0.5, 0.0],
+                color: [0.0, 1.0, 0.0],
+            }, // 1: Bottom-left
+            Vertex {
+                position: [0.5, -0.5, 0.0],
+                color: [0.0, 0.0, 1.0],
+            }, // 2: Bottom-right
+            Vertex {
+                position: [0.5, 0.5, 0.0],
+                color: [1.0, 1.0, 0.0],
+            }, // 3: Top-right
+        ];
+
+        /*
+         * Define the indices to draw the vertices.
+         * We will use indices to draw the vertices. Indices are a list of indices that correspond to the vertices.
+         * This is useful and memory efficient because it allows us to reuse vertices and avoid duplicating them.
+         * Basically, we store all the unique vertices in VERTICES, and we create another buffer that stores indices to elements in VERTICES to create the triangles.
+         * The order of the indices matters. The triangles are created counterclockwise. To change it to clockwise, go to render pipeline and change the "front_face" to Cw.
+         */
+        const INDICES: &[u16] = &[
+            0, 1, 2, // First triangle (top-left, bottom-left, bottom-right)
+            0, 2, 3, // Second triangle (top-left, bottom-right, top-right)
+        ];
+
+        // Create a vertex buffer to store the vertices.
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(VERTICES),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(INDICES),
+            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+        });
 
         let vertex_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Vertex Shader"),
@@ -122,16 +219,20 @@ impl State {
 
         // TODO: Create a bind group layout
         /*
-          When having multiple pipelines (for example, render and compute) that want to share resources, we need to create the layout explicitly, and then provide it to both the bind group and pipelines.
-          Layout describes all of the resources that are present in the bind group, not just the ones used by a specific pipeline.
-        */
+         * When having multiple pipelines (for example, render and compute) that want to share resources, we need to create the layout explicitly, and then provide it to both the bind group and pipelines.
+         * Layout describes all of the resources that are present in the bind group, not just the ones used by a specific pipeline.
+         */
 
         // TODO: Create a bind group
         /*
-          A bind group is a collection of resources that are accessible to our vertex shader. There may be multiple bind groups in a pipeline.
-          Each bind group can contain buffers, textures, samplers and other resources.
-        */
+         * A bind group is a collection of resources that are accessible to our vertex shader. There may be multiple bind groups in a pipeline.
+         * Each bind group can contain buffers, textures, samplers and other resources.
+         */
 
+        /*
+         * A pipeline layout is a list of bind group layouts that one or more pipelines use.
+         * The order of the bind group layouts in the array needs to correspond with the @group attributes in the shaders.
+         */
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
@@ -139,19 +240,23 @@ impl State {
                 immediate_size: 0,
             });
 
+        /*
+         * Create a render pipeline.
+         * The render pipeline controls how geometry is drawn, including things like which shaders are used, how to interpret data in vertex buffers, which kind of geometry should be rendered (lines, points, triangles...)
+         */
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &vertex_shader,
                 entry_point: Some("main"),
-                buffers: &[], // Tells wgpu what type of vertices we want to pass to the vertex shader
+                buffers: &[Vertex::desc()], // Tells wgpu what type of vertices we want to pass to the vertex shader
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: &fragment_shader,
                 entry_point: Some("main"),
-                // tells wgpu what color outputs it should set up
+                // Tells wgpu what color outputs it should set up
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
                     blend: Some(wgpu::BlendState {
@@ -194,6 +299,10 @@ impl State {
             config,
             window,
             render_pipeline,
+            vertex_buffer,
+            num_vertices: VERTICES.len() as u32,
+            index_buffer,
+            num_indices: INDICES.len() as u32,
             clear_color: wgpu::Color::BLACK,
             is_surface_configured: false,
         })
@@ -201,11 +310,12 @@ impl State {
 
     pub fn resize(&mut self, width: u32, height: u32) {
         if width > 0 && height > 0 {
-            // Clamp dimensions to maximum supported texture size for WebGL
+            // If we are on WebGL, we have to clamp dimensions to maximum supported texture size
             // let max_dimension = self.device.limits().max_texture_dimension_2d;
             // self.config.width = width.min(max_dimension);
             // self.config.height = height.min(max_dimension);
 
+            // If we are on WebGPU, we can use the full width and height.
             self.config.width = width;
             self.config.height = height;
             self.surface.configure(&self.device, &self.config);
@@ -260,8 +370,8 @@ impl State {
                 label: Some("Render Pass"),
                 // The "color_attachments" field describes where we are going to draw our color data to.
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,          // informs wgpu what texture to save the colors to
-                    resolve_target: None, // it is the texture that will receive the resolved output. It is used to resolve the multisampled texture to a single sample texture.
+                    view: &view,          // Informs wgpu what texture to save the colors to
+                    resolve_target: None, // It is the texture that will receive the resolved output. It is used to resolve the multisampled texture to a single sample texture.
                     depth_slice: None,
                     // This tells wgpu what to do with the colors on the screen
                     ops: wgpu::Operations {
@@ -278,9 +388,33 @@ impl State {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
+
             // TODO: Set bind group
-            // TODO: Set vertex buffer
-            render_pass.draw(0..3, 0..1);
+
+            /*
+             * Set the vertex buffer.
+             * The first is what buffer slot to use for this vertex buffer. We can have multiple vertex buffers set at a time.
+             * The second is the slice of the buffer to use. We can store as many objects in a buffer as the hardware allows, so slice allows us to specify which portion of the buffer to use. We use .. to specify the entire buffer.
+             */
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+
+            /*
+             * Set the index buffer.
+             * It's only possible to have one index buffer set at a time.
+             * The first argument is the slice of the buffer to use. We can store as many objects in a buffer as the hardware allows, so slice allows us to specify which portion of the buffer to use. We use .. to specify the entire buffer.
+             * The second argument is the format of the indices. We use Uint16 because we are using 16-bit indices.
+             */
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            // The "draw" method ignores the index buffer, so we use "draw_indexed" instead.
+            render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
+
+            /*
+             * Draw the vertices.
+             * The first argument is the number of vertices to draw.
+             * The second argument is the number of instances to draw. We draw one instance of the geometry.
+             * Instancing is a way to tell the GPU to draw multiple copies of the same geometry with a single call to draw, which is much faster than calling draw once for every copy.
+             */
+            render_pass.draw(0..self.num_vertices, 0..1);
         }
 
         /*
