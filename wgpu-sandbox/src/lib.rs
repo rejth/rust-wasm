@@ -24,9 +24,10 @@ pub struct State {
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
-    is_surface_configured: bool,
-    window: Arc<Window>,
+    render_pipeline: wgpu::RenderPipeline,
     clear_color: wgpu::Color,
+    window: Arc<Window>,
+    is_surface_configured: bool,
 }
 
 impl State {
@@ -34,12 +35,12 @@ impl State {
         let size = window.inner_size();
 
         // The instance is a handle to our GPU.
-        // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU.
+        // Backends::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU.
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             #[cfg(not(target_arch = "wasm32"))]
             backends: wgpu::Backends::PRIMARY,
             #[cfg(target_arch = "wasm32")]
-            backends: wgpu::Backends::GL,
+            backends: wgpu::Backends::BROWSER_WEBGPU,
             ..Default::default()
         });
 
@@ -54,7 +55,8 @@ impl State {
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
             })
-            .await?;
+            .await
+            .unwrap();
 
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
@@ -74,7 +76,8 @@ impl State {
                 // "trace" describes the tracing level of the device.
                 trace: wgpu::Trace::Off,
             })
-            .await?;
+            .await
+            .unwrap();
 
         let surface_caps = surface.get_capabilities(&adapter);
         // Shader code assumes an sRGB surface texture. Using a different
@@ -100,19 +103,109 @@ impl State {
             desired_maximum_frame_latency: 2, // The desired maximum frame latency of the surface.
         };
 
+        // TODO: Specify vertices. Shape a geometry in clip space.
+        // TODO: Create a vertex buffer
+        // TODO: Create a vertex buffer layout
+        /*
+          Vertex buffer layout tells the GPU how to interpret the vertex buffer (how to read the data from the buffer)
+        */
+
+        let vertex_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Vertex Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/vertex.wgsl").into()),
+        });
+
+        let fragment_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Fragment Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/fragment.wgsl").into()),
+        });
+
+        // TODO: Create a bind group layout
+        /*
+          When having multiple pipelines (for example, render and compute) that want to share resources, we need to create the layout explicitly, and then provide it to both the bind group and pipelines.
+          Layout describes all of the resources that are present in the bind group, not just the ones used by a specific pipeline.
+        */
+
+        // TODO: Create a bind group
+        /*
+          A bind group is a collection of resources that are accessible to our vertex shader. There may be multiple bind groups in a pipeline.
+          Each bind group can contain buffers, textures, samplers and other resources.
+        */
+
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[],
+                immediate_size: 0,
+            });
+
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &vertex_shader,
+                entry_point: Some("main"),
+                buffers: &[], // Tells wgpu what type of vertices we want to pass to the vertex shader
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &fragment_shader,
+                entry_point: Some("main"),
+                // tells wgpu what color outputs it should set up
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent::REPLACE,
+                        alpha: wgpu::BlendComponent::REPLACE,
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            // Describes how to interpret our vertices when converting them into triangles
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList, // Means that every three vertices will correspond to one triangle
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw, // Tells wgpu how to determine whether a given triangle is facing forward or not. FrontFace::Ccw means that a triangle is facing forward if the vertices are arranged in a counter-clockwise direction. Triangles that are not considered facing forward are culled (not included in the render) as specified by CullMode::Back
+                cull_mode: Some(wgpu::Face::Back), // Tells wgpu whether to cull the triangles or not. Face::Back means that triangles that are not facing forward are culled
+                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+                polygon_mode: wgpu::PolygonMode::Fill, // Tells wgpu whether to fill the triangles or not
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false, // Tells wgpu whether to clip fragments that are outside the depth range of the depth/stencil attachment
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false, // Tells wgpu whether to use conservative rasterization
+            },
+            depth_stencil: None, // Depth/stencil buffer
+            // Determines how many samples the pipeline will use
+            multisample: wgpu::MultisampleState {
+                count: 1, // Determines how many samples the pipeline will use. In this case, we are using 1 sample
+                mask: !0, // Specifies which samples should be active. In this case, we are using all of them
+                alpha_to_coverage_enabled: false, // Has to do with anti-aliasing
+            },
+            // If the pipeline will be used with a multiview render pass, this tells wgpu to render to just specific texture layers.
+            multiview_mask: None, // Indicates how many array layers the render attachments can have. We won't be rendering to array textures, so we can set this to None
+            cache: None, // Allows wgpu to cache shader compilation data. Only really useful for Android build targets
+        });
+
         Ok(Self {
             surface,
             device,
             queue,
             config,
-            is_surface_configured: false,
             window,
+            render_pipeline,
             clear_color: wgpu::Color::BLACK,
+            is_surface_configured: false,
         })
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
         if width > 0 && height > 0 {
+            // Clamp dimensions to maximum supported texture size for WebGL
+            // let max_dimension = self.device.limits().max_texture_dimension_2d;
+            // self.config.width = width.min(max_dimension);
+            // self.config.height = height.min(max_dimension);
+
             self.config.width = width;
             self.config.height = height;
             self.surface.configure(&self.device, &self.config);
@@ -146,7 +239,7 @@ impl State {
 
         // Get the current texture and create a view for it. It is a texture that receives the output of any drawing commands performed.
         let output = self.surface.get_current_texture()?;
-        let texture_view = output
+        let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
@@ -163,11 +256,11 @@ impl State {
              * Render pass is when all drawing operations in GPU happen.
              * Render pass may have several textures, called attachments, with various purposes such as storing the depth of rendered geometry or providing antialiasing.
              */
-            let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 // The "color_attachments" field describes where we are going to draw our color data to.
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &texture_view,  // informs wgpu what texture to save the colors to
+                    view: &view,          // informs wgpu what texture to save the colors to
                     resolve_target: None, // it is the texture that will receive the resolved output. It is used to resolve the multisampled texture to a single sample texture.
                     depth_slice: None,
                     // This tells wgpu what to do with the colors on the screen
@@ -183,6 +276,11 @@ impl State {
                 timestamp_writes: None,
                 multiview_mask: None,
             });
+
+            render_pass.set_pipeline(&self.render_pipeline);
+            // TODO: Set bind group
+            // TODO: Set vertex buffer
+            render_pass.draw(0..3, 0..1);
         }
 
         /*
@@ -315,6 +413,15 @@ impl ApplicationHandler<State> for App {
                     }
                 }
             }
+            WindowEvent::MouseInput { state, button, .. } => match (button, state.is_pressed()) {
+                (MouseButton::Left, true) => {
+                    log::info!("Mouse button left pressed");
+                }
+                (MouseButton::Left, false) => {
+                    log::info!("Mouse button left released");
+                }
+                _ => {}
+            },
             WindowEvent::KeyboardInput {
                 event:
                     KeyEvent {
