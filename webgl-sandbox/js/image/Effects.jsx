@@ -14,10 +14,8 @@ export function Effects({ effects }) {
     const renderer = new RenderImage();
 
     setEffectState((prev) => {
-      const newEffects = prev.map((e) => (e.name === name ? { ...e, on: !e.on } : e));
-      const enabledEffects = newEffects.filter((e) => e.on);
-
-      renderer.drawEffects(enabledEffects);
+      const newEffects = prev.map((effect) => (effect.name === name ? { ...effect, on: !effect.on } : effect));
+      renderer.drawEffects(newEffects.filter((effect) => effect.on));
       return newEffects;
     });
   };

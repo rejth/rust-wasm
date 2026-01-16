@@ -2,7 +2,7 @@ import { resizeCanvasToDisplaySize, createShader, createProgram, createProjectio
 import vertexSource from './shaders/vertex.glsl';
 import fragmentSource from './shaders/fragment.glsl';
 
-export function renderRect(gl) {
+export function renderBox(gl) {
   // Resize canvas before creating geometry
   resizeCanvasToDisplaySize(gl.canvas);
 

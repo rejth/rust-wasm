@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 import initWasmModule from '../pkg/webgpu_sandbox.js';
-import { RenderManager } from './RenderManager.js';
+import { RenderManager } from './simulation/RenderManager.js';
 
 export function App() {
   const canvasRef = useRef(null);

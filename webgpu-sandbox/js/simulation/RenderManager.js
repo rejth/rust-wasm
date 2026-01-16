@@ -1,4 +1,4 @@
-import { resizeCanvasToDisplaySize } from './core.js';
+import { resizeCanvasToDisplaySize } from '../core.js';
 import cellVertexShader from './shaders/vertex.wgsl';
 import cellFragmentShader from './shaders/fragment.wgsl';
 import cellComputeShader from './shaders/compute.wgsl';
@@ -382,7 +382,7 @@ export class RenderManager {
             // Clear the texture to a specific color
             loadOp: 'clear',
             // Clear the texture to a specific color
-            clearValue: { r: 0, g: 0, b: 0.4, a: 1 },
+            clearValue: { r: 0, g: 0, b: 0.0, a: 1 },
             // Store the result of the render pass in the texture
             storeOp: 'store',
           },

@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 
-import { RenderImage } from './image/RenderImage.js';
 import initWasmModule from '../pkg/webgl_playground.js';
+
+import { RenderImage } from './image/RenderImage.js';
 import { Effects } from './image/Effects.jsx';
 
 export function App() {
