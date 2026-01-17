@@ -20,7 +20,6 @@ module.exports = [
     languageOptions: {
       globals: {
         ...globals.browser,
-        webglUtils: 'readonly',
         GPUBufferUsage: 'readonly',
         GPUShaderStage: 'readonly',
       },
