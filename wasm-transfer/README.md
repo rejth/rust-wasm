@@ -20,14 +20,30 @@ cd my-project
 
 ### 🛠️ Build with `wasm-pack build`
 
+If you're developing a project for the web:
+
 ```bash
 wasm-pack build
 ```
 
-### 🔬 Test in headless browsers with `wasm-pack test`
+If you're developing a project for Node.js:
 
 ```bash
-wasm-pack test --headless --firefox
+wasm-pack build --target nodejs
+```
+
+### 🔬 Test in headless browsers or in a Node.js environment with `wasm-pack test`
+
+If you're developing a project for the web:
+
+```bash
+wasm-pack test --headless --chrome
+```
+
+If you're developing a project for Node.js:
+
+```bash
+wasm-pack test --node
 ```
 
 ### 🎁 Publish to NPM with `wasm-pack publish`
