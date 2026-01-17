@@ -27,9 +27,11 @@ pub fn run() -> anyhow::Result<()> {
     Ok(())
 }
 
+// This is the entry point for the WASM build.
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn run_web() -> Result<(), wasm_bindgen::JsValue> {
+    #[cfg(debug_assertions)]
     console_error_panic_hook::set_once();
 
     run().unwrap_throw();

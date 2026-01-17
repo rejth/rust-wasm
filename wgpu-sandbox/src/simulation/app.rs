@@ -94,10 +94,10 @@ impl ApplicationHandler<State> for App {
     }
 
     /*
-    This function is called when a window event occurs.
-    It dispatches the event to the appropriate handler.
-    This is where we can process events such as keyboard inputs, and mouse movements, as well as other window events such as when the window wants to draw or is resized.
-    */
+     * This function is called when a window event occurs.
+     * It dispatches the event to the appropriate handler.
+     * This is where we can process events such as keyboard inputs, and mouse movements, as well as other window events such as when the window wants to draw or is resized.
+     */
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
