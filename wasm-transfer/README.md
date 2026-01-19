@@ -1,5 +1,16 @@
 # wasm-transfer
 
+## About
+
+Transferring complex data from Rust to JavaScript via WebAssembly.
+
+Create a Rust struct that is exported to JavaScript as a class with methods. The struct should contain a field of type `Vec<AnotherStruct>`.
+
+Implement a method to read this vector in two ways:
+
+- via `serde_wasm_bindgen` (returns a regular JS array of objects)
+- via binary serialization (any method) + create a convenient JS wrapper class for reading the binary data
+
 This project uses [wasm-pack](https://github.com/drager/wasm-pack) and the [wasm-pack-template](https://github.com/drager/wasm-pack-template) to compile Rust code into WebAssembly and scaffold the project structure.
 
 `wasm-pack-template` is designed for compiling Rust libraries into WebAssembly and publishing the resulting package to NPM.

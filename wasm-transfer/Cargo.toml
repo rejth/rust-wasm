@@ -15,6 +15,11 @@ default = ["console_error_panic_hook"]
 
 [dependencies]
 wasm-bindgen = "0.2.106"
+gloo-utils = "0.2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.6.5"
+rmp-serde = "1.3.1"
+rkyv = "0.8.14"
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
@@ -22,5 +27,9 @@ wasm-bindgen = "0.2.106"
 # code size when deploying.
 console_error_panic_hook = { version = "0.1.7", optional = true }
 
+# These crates are used for running unit tests in the browser.
 [dev-dependencies]
 wasm-bindgen-test = "0.3.34"
+js-sys = "0.3.83"
+futures = "0.3"
+wasm-bindgen-futures = "0.4"
