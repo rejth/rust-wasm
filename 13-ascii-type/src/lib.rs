@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 use std::{error::Error, fmt};
 
-/// Owned ASCII string (bytes 0-127)
+/// Owned ASCII string (numbers, letters, symbols with 1-byte length)
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct AsciiString(String);
 
