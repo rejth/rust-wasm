@@ -31,6 +31,7 @@
 
 mod utils;
 
+use chrono::{SecondsFormat, Utc};
 use gloo_utils::format::JsValueSerdeExt;
 use rkyv::{Archive, deserialize, rancor::Error};
 use serde::ser::Serialize;
@@ -45,6 +46,13 @@ extern "C" {
 #[wasm_bindgen]
 pub fn greet() {
     log("Hello from Rust! 🦀");
+}
+
+/// Export WebAssembly memory for direct access from JavaScript.
+/// This is needed for zero-copy data access patterns.
+#[wasm_bindgen(js_name = getMemory)]
+pub fn get_memory() -> JsValue {
+    wasm_bindgen::memory()
 }
 
 #[derive(
@@ -62,11 +70,41 @@ pub fn greet() {
     // Derives can be passed through to the generated type:
     derive(Debug),
 )]
+#[repr(C)]
 struct Product {
-    sku: String,
-    price: f32,
-    quantity: u32,
-    in_stock: bool,
+    sku: String, // String in wasm32 has layout [len, ptr, cap]. Overall 12 bytes (4 bytes for each).
+    price: f32,  // 4 bytes
+    quantity: u32, // 4 bytes
+    in_stock: bool, // 1 byte
+}
+
+impl Product {
+    pub fn new(sku: String, price: f32, quantity: u32, in_stock: bool) -> Product {
+        Product {
+            sku,
+            price,
+            quantity,
+            in_stock,
+        }
+    }
+
+    pub fn encode(&self) -> Vec<u8> {
+        let mut bytes = vec![];
+
+        bytes.extend_from_slice(self.as_bytes(&self.sku.as_ptr()));
+        bytes.extend_from_slice(self.as_bytes(&self.sku.len()));
+        bytes.extend_from_slice(self.as_bytes(&self.price));
+        bytes.extend_from_slice(self.as_bytes(&self.quantity));
+        bytes.push(self.in_stock as u8);
+
+        return bytes;
+    }
+
+    fn as_bytes<T>(&self, value: &T) -> &[u8] {
+        let ptr = value as *const T as *const u8;
+        let len = size_of::<T>();
+        unsafe { std::slice::from_raw_parts(ptr, len) }
+    }
 }
 
 #[wasm_bindgen(getter_with_clone)]
@@ -85,24 +123,23 @@ impl Order {
         Order {
             order_id,
             customer_name,
-            created_at: String::new(),
-            items: vec![],
+            created_at: Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true),
+            items: Vec::new(),
         }
     }
 
+    #[wasm_bindgen(js_name = addProduct)]
     pub fn add_product(&mut self, sku: String, price: f32, quantity: u32, in_stock: bool) {
-        self.items.push(Product {
-            sku,
-            price,
-            quantity,
-            in_stock,
-        });
+        self.items
+            .push(Product::new(sku.to_string(), price, quantity, in_stock));
     }
 
+    #[wasm_bindgen(js_name = totalItemsCount)]
     pub fn total_items_count(&self) -> usize {
         self.items.len()
     }
 
+    #[wasm_bindgen(js_name = totalValue)]
     pub fn total_value(&self) -> f32 {
         self.items
             .iter()
@@ -129,6 +166,7 @@ impl Order {
     /// ## Cons
     /// - Doesn't support HashMap/HashSet, BTreeMap, etc.
     /// - Expensive multi-step conversion
+    #[wasm_bindgen(js_name = getItemsJson)]
     pub fn serialize_items_with_serde(&self) -> JsValue {
         JsValue::from_serde(&self.items).unwrap()
     }
@@ -153,6 +191,7 @@ impl Order {
     ///
     /// ## Cons
     /// - Each field = separate WASM→JS call (expensive for large data)
+    #[wasm_bindgen(js_name = getItemsJs)]
     pub fn serialize_items_with_serde_wasm_bindgen(&self) -> JsValue {
         serde_wasm_bindgen::to_value(&self.items).unwrap()
     }
@@ -163,28 +202,31 @@ impl Order {
     }
 
     // ========================================================================
-    // Serialization Method 3: Raw bytes (NOT RECOMMENDED)
+    // Serialization Method 3: Raw bytes
     // ========================================================================
 
     /// Serializes items as raw memory bytes. See the 09-wasm-data-bridge crate for more details.
     ///
-    /// **⚠️ NOT RECOMMENDED** - Included for educational purposes only.
+    /// ## Pros
+    /// -
     ///
-    /// ## Problems
-    /// - Only works for primitive-only data
-    /// - String fields become memory addresses (useless in JS)
-    /// - Requires manual memory management
-    /// - Requires knowing exact byte layout for decoding
-    #[allow(dead_code)]
-    fn serialize_items_with_raw_bytes(&self) -> Vec<u8> {
-        let slice = self.items.as_slice();
-        let ptr = slice.as_ptr() as *const u8;
-        let size = slice.len() * std::mem::size_of::<Product>();
-        unsafe { std::slice::from_raw_parts(ptr, size).to_vec() }
+    /// ## Cons
+    /// -
+    #[wasm_bindgen(js_name = getItemsBinary)]
+    pub fn serialize_items_with_bytes(&self) -> Vec<u8> {
+        self.items.iter().flat_map(|item| item.encode()).collect()
+    }
+
+    #[wasm_bindgen(js_name = getItemsBinaryRaw)]
+    pub fn serialize_items_with_raw_bytes(&self) -> Vec<usize> {
+        vec![
+            self.items.as_ptr() as usize,
+            self.items.len() * size_of::<Product>(),
+        ]
     }
 
     // ========================================================================
-    // Serialization Method 4: MessagePack (rmp_serde)
+    // Serialization Method 4: Raw bytes in the MessagePack format (rmp_serde)
     // ========================================================================
 
     /// Serializes items using MessagePack binary format.
@@ -201,6 +243,7 @@ impl Order {
     /// ## Cons
     /// - Requires decoding step in JS
     /// - Returns tuple arrays, not objects: `["SKU001", 10.0, 2, true]`
+    #[wasm_bindgen(js_name = getItemsBinaryMessagePack)]
     pub fn serialize_items_with_rmp_serde(&self) -> Vec<u8> {
         let mut buf = vec![];
         let mut serializer =
@@ -217,7 +260,7 @@ impl Order {
     }
 
     // ========================================================================
-    // Serialization Method 5: rkyv (Rust-only)
+    // Serialization Method 5: Raw bytes with rkyv library (Rust-only)
     // ========================================================================
 
     /// Serializes items using rkyv zero-copy format.
