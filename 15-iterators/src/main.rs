@@ -1,4 +1,4 @@
-use iterable::SimpleLog;
+use iterators::SimpleLog;
 
 fn main() {
     let mut log = SimpleLog::new();
