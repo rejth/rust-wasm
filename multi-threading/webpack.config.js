@@ -52,6 +52,10 @@ module.exports = {
           },
         },
       },
+      {
+        test: /\.wgsl$/,
+        type: 'asset/source',
+      },
     ],
   },
   plugins: [

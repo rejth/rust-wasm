@@ -1,5 +1,5 @@
 import { resize } from './utils.js';
-import { mandelbrot_set, mandelbrot_set_parallel } from '../pkg/multi_threading.js';
+import { mandelbrot_set, mandelbrot_set_parallel, generate } from '../pkg/multi_threading.js';
 
 export class MandelbrotSet {
   constructor(canvas) {
@@ -75,16 +75,14 @@ export class MandelbrotSet {
     return iterations;
   }
 
-  draw() {
-    console.time('mandelbrot_single_threaded_js');
+  draw(maxIterations) {
+    console.time('mandelbrot_js_single_thread');
 
     const width = this.canvas.width;
     const height = this.canvas.height;
     const img = this.ctx.createImageData(width, height);
     const data = img.data;
 
-    // View window in the complex plane (classic starting view)
-    // real in [-2.5, 1], imag in [-1, 1] adjusted by aspect
     const centerX = -0.75;
     const centerY = 0.0;
     const scale = 3.2; // smaller => more zoomed in
@@ -93,62 +91,64 @@ export class MandelbrotSet {
     const halfWidth = (scale * aspect) / 2;
     const halfHeight = scale / 2;
 
-    const maxIterations = 500;
     const palette = this.generatePalette(maxIterations);
 
-    let p = 0;
+    // Pre-compute constants for the inner loop
+    const heightMinus1 = height - 1;
+    const widthMinus1 = width - 1;
+    const doubleHalfHeight = 2 * halfHeight;
+    const doubleHalfWidth = 2 * halfWidth;
+
     for (let py = 0; py < height; py++) {
-      const cy = centerY + (py / (height - 1)) * (2 * halfHeight) - halfHeight;
+      const cy = centerY + (py / heightMinus1) * doubleHalfHeight - halfHeight;
+      let p = py * width * 4;
 
       for (let px = 0; px < width; px++) {
-        const cx = centerX + (px / (width - 1)) * (2 * halfWidth) - halfWidth;
+        const cx = centerX + (px / widthMinus1) * doubleHalfWidth - halfWidth;
 
         const iterations = this.mandelbrotEscape(cx, cy, maxIterations);
 
-        /**
-         * A coloring rule based on how fast it “escapes” (gets large).
-         * Simple rule: Inside -> black; Outside -> gradient by escape iterations.
-         */
         if (iterations === maxIterations) {
-          data[p++] = 0;
-          data[p++] = 0;
-          data[p++] = 0;
-          data[p++] = 255;
+          data[p] = 0;
+          data[p + 1] = 0;
+          data[p + 2] = 0;
+          data[p + 3] = 255;
         } else {
-          // Smooth-ish grayscale (quick and decent)
-          data[p++] = palette[iterations][0];
-          data[p++] = palette[iterations][1];
-          data[p++] = palette[iterations][2];
-          data[p++] = 255;
+          // Cache color lookup to avoid multiple array accesses
+          const color = palette[iterations];
+          data[p] = color[0];
+          data[p + 1] = color[1];
+          data[p + 2] = color[2];
+          data[p + 3] = 255;
         }
+        p += 4;
       }
     }
-    console.timeEnd('mandelbrot_single_threaded_js');
+
+    console.timeEnd('mandelbrot_js_single_thread');
 
     this.ctx.putImageData(img, 0, 0);
   }
 
-  drawWithWasm() {
+  drawWithWasm(maxIterations) {
     const width = this.canvas.width;
     const height = this.canvas.height;
 
-    console.time('mandelbrot_single_threaded_wasm');
-    const bytes = mandelbrot_set(width, height);
-    console.timeEnd('mandelbrot_single_threaded_wasm');
+    console.time('mandelbrot_wasm_single_thread');
+    const bytes = mandelbrot_set(width, height, maxIterations);
+    console.timeEnd('mandelbrot_wasm_single_thread');
 
-    const data = new Uint8ClampedArray(bytes);
-    this.ctx.putImageData(new ImageData(data, width, height), 0, 0);
+    this.ctx.putImageData(new ImageData(bytes, width, height), 0, 0);
   }
 
-  drawWithWasmParallel() {
+  drawWithWasmParallel(maxIterations) {
     const width = this.canvas.width;
     const height = this.canvas.height;
 
-    console.time('mandelbrot_parallel_wasm');
-    const bytes = mandelbrot_set_parallel(width, height, 500);
-    console.timeEnd('mandelbrot_parallel_wasm');
+    console.time('mandelbrot_wasm_parallel');
+    const bytes = mandelbrot_set_parallel(width, height, maxIterations);
+    console.timeEnd('mandelbrot_wasm_parallel');
 
-    const data = new Uint8ClampedArray(bytes);
-    this.ctx.putImageData(new ImageData(data, width, height), 0, 0);
+    this.ctx.putImageData(new ImageData(bytes, width, height), 0, 0);
   }
 }

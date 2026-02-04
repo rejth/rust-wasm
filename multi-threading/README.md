@@ -1,6 +1,16 @@
-# WebGPU Sandbox
+# Multi-threading with WebAssembly
 
-This project uses **[wasm-pack](https://github.com/drager/wasm-pack)** to build Rust code to WebAssembly and follows the **[rust-webpack template](https://github.com/drager/rust-webpack-template)** structure (this project uses Vite instead of Webpack).
+Mandelbrot Set visualization on Canvas with WebAssembly
+Implement a Mandelbrot set visualization on a canvas, where the iteration calculations for each pixel are performed inside a WebAssembly container. You may refer to an existing image generation algorithm.
+
+Create two versions:
+
+- Single-threaded version
+- Multi-threaded version (using SharedArrayBuffer, you can use a library like wasm-bindgen-rayon)
+
+Compare the performance of the two implementations: measure the rendering time for a full frame (for example, 1920×1080 with 1000–5000 iterations).
+
+This project uses **[wasm-pack](https://github.com/drager/wasm-pack)** to build Rust code to WebAssembly and follows the **[rust-webpack template](https://github.com/drager/rust-webpack-template)** structure.
 
 See the [wasm-pack documentation](https://drager.github.io/wasm-pack/book/introduction.html) for more information.
 

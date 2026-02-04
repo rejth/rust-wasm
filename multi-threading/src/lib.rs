@@ -1,7 +1,7 @@
 use hsl::HSL;
 use rand::Rng;
 use rayon::prelude::*;
-use wasm_bindgen::prelude::*;
+use wasm_bindgen::{Clamped, prelude::*};
 use web_sys::console;
 
 // Re-export the thread pool initializer for JavaScript
@@ -17,12 +17,14 @@ pub fn main_js() -> Result<(), JsValue> {
     Ok(())
 }
 
+type RGBA = [u8; 4];
+
 /// Generate a random color palette - different each time
-pub fn generate_palette(max_iterations: u32) -> Vec<[u8; 4]> {
+pub fn generate_palette(max_iterations: u32) -> Box<[RGBA]> {
     let mut rng = rand::thread_rng();
 
     (0..max_iterations)
-        .map(|_| {
+        .map(move |_| {
             let (r, g, b) = HSL {
                 h: rng.gen_range(0.0..360.0),
                 s: 0.5,
@@ -55,7 +57,9 @@ fn mandelbrot_escape(cx: f64, cy: f64, max_iterations: u32) -> u32 {
 }
 
 #[wasm_bindgen]
-pub fn mandelbrot_set(width: u32, height: u32) -> Vec<u8> {
+pub fn mandelbrot_set(width: u32, height: u32, max_iterations: u32) -> Clamped<Vec<u8>> {
+    use std::rc::Rc;
+
     let center_x = -0.75;
     let center_y = 0.0;
     let scale = 3.2;
@@ -64,40 +68,38 @@ pub fn mandelbrot_set(width: u32, height: u32) -> Vec<u8> {
     let half_width = (scale * aspect) / 2.0;
     let half_height = scale / 2.0;
 
-    let max_iterations = 500;
-    let palette = generate_palette(max_iterations);
+    let palette = Rc::new(generate_palette(max_iterations));
 
-    let mut data = vec![0u8; (width * height * 4) as usize];
+    Clamped(
+        (0..height)
+            .flat_map(|py| {
+                let palette = Rc::clone(&palette);
+                let cy = center_y + (py as f64 / (height - 1) as f64) * (2.0 * half_height)
+                    - half_height;
 
-    let mut p = 0;
-    for py in 0..height {
-        let cy = center_y + (py as f64 / (height - 1) as f64) * (2.0 * half_height) - half_height;
+                (0..width).flat_map(move |px| {
+                    let cx = center_x + (px as f64 / (width - 1) as f64) * (2.0 * half_width)
+                        - half_width;
+                    let iterations = mandelbrot_escape(cx, cy, max_iterations);
 
-        for px in 0..width {
-            let cx = center_x + (px as f64 / (width - 1) as f64) * (2.0 * half_width) - half_width;
+                    let color = if iterations == max_iterations {
+                        [0, 0, 0, 255]
+                    } else {
+                        palette[iterations as usize]
+                    };
 
-            let iterations = mandelbrot_escape(cx, cy, max_iterations);
-
-            let color = if iterations == max_iterations {
-                [0, 0, 0, 255] // Black for points in the set
-            } else {
-                palette[iterations as usize]
-            };
-
-            data[p] = color[0];
-            data[p + 1] = color[1];
-            data[p + 2] = color[2];
-            data[p + 3] = color[3];
-            p += 4;
-        }
-    }
-
-    data
+                    color
+                })
+            })
+            .collect(),
+    )
 }
 
-/// Parallel Mandelbrot computation using Rayon
+/// Parallel Mandelbrot computation using Rayon with iterator pattern
 #[wasm_bindgen]
-pub fn mandelbrot_set_parallel(width: u32, height: u32) -> Vec<u8> {
+pub fn mandelbrot_set_parallel(width: u32, height: u32, max_iterations: u32) -> Clamped<Vec<u8>> {
+    use std::sync::Arc;
+
     let center_x = -0.75;
     let center_y = 0.0;
     let scale = 3.2;
@@ -106,41 +108,30 @@ pub fn mandelbrot_set_parallel(width: u32, height: u32) -> Vec<u8> {
     let half_width = (scale * aspect) / 2.0;
     let half_height = scale / 2.0;
 
-    let max_iterations = 500;
-    let palette = generate_palette(max_iterations);
-    let width = width as usize;
-    let height = height as usize;
+    let palette = Arc::new(generate_palette(max_iterations));
 
-    // Compute rows in parallel
-    let rows: Vec<Vec<u8>> = (0..height)
-        .into_par_iter()
-        .map(|py| {
-            let cy =
-                center_y + (py as f64 / (height - 1) as f64) * (2.0 * half_height) - half_height;
+    Clamped(
+        (0..height)
+            .into_par_iter()
+            .flat_map_iter(move |py| {
+                let palette = Arc::clone(&palette);
+                let cy = center_y + (py as f64 / (height - 1) as f64) * (2.0 * half_height)
+                    - half_height;
 
-            let mut row_data = vec![0u8; width * 4];
+                (0..width).flat_map(move |px| {
+                    let cx = center_x + (px as f64 / (width - 1) as f64) * (2.0 * half_width)
+                        - half_width;
+                    let iterations = mandelbrot_escape(cx, cy, max_iterations);
 
-            for px in 0..width {
-                let cx =
-                    center_x + (px as f64 / (width - 1) as f64) * (2.0 * half_width) - half_width;
-                let iterations = mandelbrot_escape(cx, cy, max_iterations as u32);
+                    let color = if iterations == max_iterations {
+                        [0, 0, 0, 255]
+                    } else {
+                        palette[iterations as usize]
+                    };
 
-                let color = if iterations == max_iterations as u32 {
-                    [0, 0, 0, 255]
-                } else {
-                    palette[iterations as usize]
-                };
-
-                let p = px * 4;
-                row_data[p] = color[0];
-                row_data[p + 1] = color[1];
-                row_data[p + 2] = color[2];
-                row_data[p + 3] = color[3];
-            }
-
-            row_data
-        })
-        .collect();
-
-    rows.into_iter().flatten().collect()
+                    color
+                })
+            })
+            .collect(),
+    )
 }
