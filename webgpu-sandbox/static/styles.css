@@ -1,3 +1,17 @@
+:root {
+  --bg-color: #ffffff;
+  --line-color-1: #aaaaaa;
+  --line-color-2: #dddddd;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-color: #000000;
+    --line-color-1: #666666;
+    --line-color-2: #333333;
+  }
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -8,22 +22,14 @@ html,
 body {
   width: 100%;
   min-height: 100%;
-  background: #0a0a0f;
   overflow: hidden;
-  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  overscroll-behavior: contain;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: none;
 }
 
 #root {
   min-height: 100vh;
-}
-
-.loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-  color: #c8ccd4;
-  font-size: 18px;
 }
 
 .app-container {
@@ -35,8 +41,23 @@ body {
 
 #canvas {
   flex: 1;
-  min-width: 0;
   display: block;
+  min-width: 0;
   height: 100vh;
-  background: #0a0a0f;
+  background-color: var(--bg-color);
+  background-image:
+    linear-gradient(var(--line-color-1) 1.5px, transparent 1.5px),
+    linear-gradient(90deg, var(--line-color-1) 1.5px, transparent 1.5px),
+    linear-gradient(var(--line-color-2) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-color-2) 1px, transparent 1px);
+  background-position:
+    -1.5px -1.5px,
+    -1.5px -1.5px,
+    -1px -1px,
+    -1px -1px;
+  background-size:
+    100px 100px,
+    100px 100px,
+    10px 10px,
+    10px 10px;
 }
