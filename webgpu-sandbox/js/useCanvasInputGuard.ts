@@ -14,17 +14,17 @@ import { useEffect } from 'react';
  */
 export function useCanvasInputGuard() {
   useEffect(() => {
-    let cleanup = null;
+    let cleanup: (() => void) | null = null;
     let id = 0;
 
     const attach = () => {
-      const canvas = document.querySelector('#root canvas');
+      const canvas = document.querySelector<HTMLCanvasElement>('#root canvas');
       if (!canvas) {
         id = requestAnimationFrame(attach);
         return;
       }
 
-      const isFromCanvas = (event) => {
+      const isFromCanvas = (event: Event) => {
         const target = event.target;
         if (target instanceof Node && (target === canvas || canvas.contains(target))) {
           return true;
@@ -35,7 +35,7 @@ export function useCanvasInputGuard() {
         return false;
       };
 
-      const blockCanvasEvent = (event) => {
+      const blockCanvasEvent = (event: Event) => {
         if (isFromCanvas(event)) {
           event.preventDefault();
         }

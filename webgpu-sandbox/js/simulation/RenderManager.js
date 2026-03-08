@@ -1,4 +1,4 @@
-import { resizeCanvasToDisplaySize } from '../core.js';
+import { resizeCanvasToDisplaySize } from '../box/utils.js';
 import cellVertexShader from './shaders/vertex.wgsl';
 import cellFragmentShader from './shaders/fragment.wgsl';
 import cellComputeShader from './shaders/compute.wgsl';

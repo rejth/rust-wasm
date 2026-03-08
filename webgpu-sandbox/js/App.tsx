@@ -21,15 +21,11 @@ export function App() {
     if (!ready || !canvasRef.current) return;
 
     (async () => {
-      const canvas = canvasRef.current;
+      const canvas = canvasRef.current!;
       const renderManager = new RenderManager(canvas);
       await renderManager.init();
 
-      // Shape a geometry - 4 vertices in a square (in clip space)
-      const vertices = [-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0]; // 0-1 UV space; scale converts to pixels
-      const indices = [0, 1, 2, 0, 2, 3];
-      renderManager.setVertices(vertices);
-      renderManager.setIndices(indices);
+      renderManager.buildCard();
 
       // Add GUI controls for the render manager settings
       const radToDegOptions = { min: -360, max: 360, step: 1, converters: GUI.converters.radToDeg };
@@ -45,7 +41,6 @@ export function App() {
       gui.add(renderManager.settings.scale, '1', -800, 800).name('scale.y');
       gui.onChange(renderManager.redraw);
 
-      // Render the geometry
       renderManager.run();
     })();
   }, [ready]);
