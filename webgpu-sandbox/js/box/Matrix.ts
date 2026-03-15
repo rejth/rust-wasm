@@ -1,11 +1,11 @@
-import { Vector } from './Vector';
+import { Vector2D } from './Vector2D';
 
 export type Vector3 = [number, number, number];
 
 /**
  * A 4x4 matrix for 3D transformations.
  */
-export class Matrix {
+export class Matrix4 {
   elements: Float32Array;
 
   constructor() {
@@ -37,6 +37,23 @@ export class Matrix {
     m[15] = 1;
 
     return this;
+  }
+
+  /**
+   * Set data from another matrix
+   */
+  set(data: Matrix4['elements']) {
+    this.elements.set(data);
+    return this;
+  }
+
+  /**
+   * Copy the matrix
+   */
+  copy() {
+    const dst = new Matrix4();
+    dst.set(this.elements);
+    return dst;
   }
 
   /**
@@ -114,28 +131,28 @@ export class Matrix {
    * Appends translation to an existing transform chain without extra allocations.
    * Preserves current projection/rotation/scale and updates only the last column based on existing columns.
    */
-  translate([dx, dy, dz]: Vector3) {
+  translate([dx, dy, dz]: Float32Array) {
     const m = this.elements;
 
-    const c0r0 = m[0],
-      c0r1 = m[1],
-      c0r2 = m[2],
-      c0r3 = m[3];
+    const c0r0 = m[0];
+    const c0r1 = m[1];
+    const c0r2 = m[2];
+    const c0r3 = m[3];
 
-    const c1r0 = m[4],
-      c1r1 = m[5],
-      c1r2 = m[6],
-      c1r3 = m[7];
+    const c1r0 = m[4];
+    const c1r1 = m[5];
+    const c1r2 = m[6];
+    const c1r3 = m[7];
 
-    const c2r0 = m[8],
-      c2r1 = m[9],
-      c2r2 = m[10],
-      c2r3 = m[11];
+    const c2r0 = m[8];
+    const c2r1 = m[9];
+    const c2r2 = m[10];
+    const c2r3 = m[11];
 
-    const c3r0 = m[12],
-      c3r1 = m[13],
-      c3r2 = m[14],
-      c3r3 = m[15];
+    const c3r0 = m[12];
+    const c3r1 = m[13];
+    const c3r2 = m[14];
+    const c3r3 = m[15];
 
     m[12] = c0r0 * dx + c1r0 * dy + c2r0 * dz + c3r0;
     m[13] = c0r1 * dx + c1r1 * dy + c2r1 * dz + c3r1;
@@ -155,15 +172,15 @@ export class Matrix {
     const s = Math.sin(angleInRadians);
     const c = Math.cos(angleInRadians);
 
-    const c0r0 = m[0],
-      c0r1 = m[1],
-      c0r2 = m[2],
-      c0r3 = m[3];
+    const c0r0 = m[0];
+    const c0r1 = m[1];
+    const c0r2 = m[2];
+    const c0r3 = m[3];
 
-    const c1r0 = m[4],
-      c1r1 = m[5],
-      c1r2 = m[6],
-      c1r3 = m[7];
+    const c1r0 = m[4];
+    const c1r1 = m[5];
+    const c1r2 = m[6];
+    const c1r3 = m[7];
 
     m[0] = c0r0 * c - c1r0 * s;
     m[1] = c0r1 * c - c1r1 * s;
@@ -183,7 +200,7 @@ export class Matrix {
    * Appends scale to an existing transform chain without extra allocations.
    * Preserves current translation/rotation/projection and updates only the scale matrix.
    */
-  scale([sx, sy, sz]: Vector3) {
+  scale([sx, sy, sz]: Float32Array) {
     const m = this.elements;
 
     m[0] *= sx;
@@ -208,47 +225,50 @@ export class Matrix {
    * Multiplies two 4x4 matrices.
    * This is commonly used to combine transformations (like applying a rotation after a translation).
    */
-  multiply(matrix: Matrix) {
+  multiply(matrix: Matrix4) {
     const ae = this.elements;
     const be = matrix.elements;
     const out = this.elements;
 
-    const a00 = ae[0],
-      a01 = ae[1],
-      a02 = ae[2],
-      a03 = ae[3];
+    const a00 = ae[0];
+    const a01 = ae[1];
+    const a02 = ae[2];
+    const a03 = ae[3];
 
-    const a10 = ae[4],
-      a11 = ae[5],
-      a12 = ae[6],
-      a13 = ae[7];
+    const a10 = ae[4];
+    const a11 = ae[5];
+    const a12 = ae[6];
+    const a13 = ae[7];
 
-    const a20 = ae[8],
-      a21 = ae[9],
-      a22 = ae[10],
-      a23 = ae[11];
+    const a20 = ae[8];
+    const a21 = ae[9];
+    const a22 = ae[10];
+    const a23 = ae[11];
 
-    const a30 = ae[12],
-      a31 = ae[13],
-      a32 = ae[14],
-      a33 = ae[15];
+    const a30 = ae[12];
+    const a31 = ae[13];
+    const a32 = ae[14];
+    const a33 = ae[15];
 
-    const b00 = be[0],
-      b01 = be[1],
-      b02 = be[2],
-      b03 = be[3];
-    const b10 = be[4],
-      b11 = be[5],
-      b12 = be[6],
-      b13 = be[7];
-    const b20 = be[8],
-      b21 = be[9],
-      b22 = be[10],
-      b23 = be[11];
-    const b30 = be[12],
-      b31 = be[13],
-      b32 = be[14],
-      b33 = be[15];
+    const b00 = be[0];
+    const b01 = be[1];
+    const b02 = be[2];
+    const b03 = be[3];
+
+    const b10 = be[4];
+    const b11 = be[5];
+    const b12 = be[6];
+    const b13 = be[7];
+
+    const b20 = be[8];
+    const b21 = be[9];
+    const b22 = be[10];
+    const b23 = be[11];
+
+    const b30 = be[12];
+    const b31 = be[13];
+    const b32 = be[14];
+    const b33 = be[15];
 
     out[0] = a00 * b00 + a10 * b01 + a20 * b02 + a30 * b03;
     out[1] = a01 * b00 + a11 * b01 + a21 * b02 + a31 * b03;
@@ -281,34 +301,36 @@ export class Matrix {
   inverse() {
     const m = this.elements;
 
-    const m00 = m[0],
-      m01 = m[1],
-      m02 = m[2],
-      m03 = m[3];
+    const m00 = m[0];
+    const m01 = m[1];
+    const m02 = m[2];
+    const m03 = m[3];
 
-    const m10 = m[4],
-      m11 = m[5],
-      m12 = m[6],
-      m13 = m[7];
+    const m10 = m[4];
+    const m11 = m[5];
+    const m12 = m[6];
+    const m13 = m[7];
 
-    const m20 = m[8],
-      m21 = m[9],
-      m22 = m[10],
-      m23 = m[11];
+    const m20 = m[8];
+    const m21 = m[9];
+    const m22 = m[10];
+    const m23 = m[11];
 
-    const m30 = m[12],
-      m31 = m[13],
-      m32 = m[14],
-      m33 = m[15];
+    const m30 = m[12];
+    const m31 = m[13];
+    const m32 = m[14];
+    const m33 = m[15];
 
     const b00 = m00 * m11 - m01 * m10;
     const b01 = m00 * m12 - m02 * m10;
     const b02 = m00 * m13 - m03 * m10;
     const b03 = m01 * m12 - m02 * m11;
+
     const b04 = m01 * m13 - m03 * m11;
     const b05 = m02 * m13 - m03 * m12;
     const b06 = m20 * m31 - m21 * m30;
     const b07 = m20 * m32 - m22 * m30;
+
     const b08 = m20 * m33 - m23 * m30;
     const b09 = m21 * m32 - m22 * m31;
     const b10 = m21 * m33 - m23 * m31;
@@ -345,10 +367,39 @@ export class Matrix {
   }
 
   /**
+   * Transforms this matrix by a 3D vector.
+   */
+  transform(vector: Vector3) {
+    const m = this.elements;
+
+    const x = vector[0];
+    const y = vector[1];
+    const z = vector[2];
+
+    const c0r0 = m[0];
+    const c0r1 = m[1];
+    const c0r2 = m[2];
+
+    const c1r0 = m[4];
+    const c1r1 = m[5];
+    const c1r2 = m[6];
+
+    const c2r0 = m[8];
+    const c2r1 = m[9];
+    const c2r2 = m[10];
+
+    m[0] = x * c0r0 + y * c1r0 + z * c2r0;
+    m[1] = x * c0r1 + y * c1r1 + z * c2r1;
+    m[2] = x * c0r2 + y * c1r2 + z * c2r2;
+
+    return this;
+  }
+
+  /**
    * Returns a new 2D vector, where the given vector is transformed by this 4x4 matrix and transformed as a 2D point (z=0, w=1), including translation.
    * Transforms a point/position in space (like moving a dot from one location to another).
    */
-  apply2DPoint(vector: Vector) {
+  apply2DPoint(vector: Vector2D) {
     const m = this.elements;
     const x = vector.x;
     const y = vector.y;
@@ -358,10 +409,10 @@ export class Matrix {
     const tw = m[3] * x + m[7] * y + m[15];
 
     if (tw !== 0 && tw !== 1) {
-      return new Vector(tx / tw, ty / tw);
+      return new Vector2D(tx / tw, ty / tw);
     }
 
-    return new Vector(tx, ty);
+    return new Vector2D(tx, ty);
   }
 
   /**
@@ -369,11 +420,11 @@ export class Matrix {
    * This method does not include translation (e and f). It's a direction-only transformation.
    * Transform a direction/velocity vector (like rotating which way something is pointing, but not changing its position).
    */
-  apply2DVector(vector: Vector) {
+  apply2DVector(vector: Vector2D) {
     const m = this.elements;
     const x = vector.x;
     const y = vector.y;
 
-    return new Vector(m[0] * x + m[4] * y, m[1] * x + m[5] * y);
+    return new Vector2D(m[0] * x + m[4] * y, m[1] * x + m[5] * y);
   }
 }

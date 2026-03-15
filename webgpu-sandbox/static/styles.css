@@ -44,6 +44,7 @@ body {
   display: block;
   min-width: 0;
   height: 100vh;
+  touch-action: none;
   background-color: var(--bg-color);
   background-image:
     linear-gradient(var(--line-color-1) 1.5px, transparent 1.5px),

@@ -2,13 +2,15 @@ import vertexShaderSource from './vertex.wgsl';
 import fragmentShaderSource from './fragment.wgsl';
 
 import { Geometry } from './Geometry';
-import { Matrix } from './Matrix';
-import { Mesh, SceneGraphNode, NodeTransformation, Transformations } from './SceneGraph';
+import { Matrix4 } from './Matrix';
+import { SceneGraphNode, NodeTransformation, Transformations } from './SceneGraph';
+import { Mesh } from './Mesh';
 import { UNIT_RECT_VERTICES, UNIT_RECT_INDICES } from './shapes';
 import { resizeCanvasToDisplaySize, parseColorToRGBA } from './utils';
 import type { ColorLike, Settings } from './types';
+import { type OrbitCamera } from './OrbitCamera';
 
-const BYTES_PER_FLOAT = 4; // 4 bytes per float
+const BYTES_PER_FLOAT = 4;
 const FLOATS_PER_VERTEX = 3; // x, y, z
 const COLOR_FLOATS = 4; // r, g, b, a
 const MATRIX_FLOATS = 16; // 4x4 matrix
@@ -42,25 +44,25 @@ export class RenderManager {
   readonly geometry: Geometry;
   readonly settings: Settings;
   readonly meshes: Mesh[] = [];
-  readonly transformMatrix: Matrix;
+  readonly transformMatrix: Matrix4;
   readonly root: SceneGraphNode;
 
-  private _gpu: GPUInitialized | null = null;
-  private _instanceInfos: InstanceInfo[] = [];
+  #camera: OrbitCamera | null = null;
+  #scratchMatrix = new Matrix4();
 
-  private _vertexBuffer: GPUBuffer | null = null;
-  private _vertexBufferLayout: GPUVertexBufferLayout | null = null;
-  private _indexBuffer: GPUBuffer | null = null;
+  #gpu: GPUInitialized | null = null;
+  #instanceInfos: InstanceInfo[] = [];
 
-  private _vertexShader: GPUShaderModule | null = null;
-  private _fragmentShader: GPUShaderModule | null = null;
+  #vertexBuffer: GPUBuffer | null = null;
+  #vertexBufferLayout: GPUVertexBufferLayout | null = null;
+  #indexBuffer: GPUBuffer | null = null;
 
-  private _bindGroupLayout: GPUBindGroupLayout | null = null;
+  #vertexShader: GPUShaderModule | null = null;
+  #fragmentShader: GPUShaderModule | null = null;
 
-  private _pipelineLayout: GPUPipelineLayout | null = null;
-  private _renderPipeline: GPURenderPipeline | null = null;
-
-  private _scratchMatrix = new Matrix();
+  #bindGroupLayout: GPUBindGroupLayout | null = null;
+  #pipelineLayout: GPUPipelineLayout | null = null;
+  #renderPipeline: GPURenderPipeline | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     if (!navigator.gpu) {
@@ -70,28 +72,27 @@ export class RenderManager {
     this.canvas = canvas;
     this.root = new SceneGraphNode('root');
     this.geometry = new Geometry();
-    this.transformMatrix = new Matrix();
+    this.transformMatrix = new Matrix4();
 
-    const boxSize = 300;
     this.settings = {
       useOrthographic: false,
       fieldOfView: this.geometry.degreesToRadians(100),
       zoom: 1,
       orthographicHeight: 1000,
-      orthographicTranslation: [0, 0, 0],
-      translation: [0, 0, -600],
-      scale: [boxSize, boxSize, 1],
+      orthographicTranslation: new Float32Array([0, 0, 0]),
+      translation: new Float32Array([0, 0, -600]),
+      scale: new Float32Array([1, 1, 1]),
       rotation: this.geometry.degreesToRadians(0),
     };
 
     this.redraw = this.redraw.bind(this);
   }
 
-  private assertGPU(): GPUInitialized {
-    if (!this._gpu) {
+  #assertGPU(): GPUInitialized {
+    if (!this.#gpu) {
       throw new Error('GPU not initialized. Call init() first.');
     }
-    return this._gpu;
+    return this.#gpu;
   }
 
   async init() {
@@ -120,40 +121,41 @@ export class RenderManager {
       alphaMode: 'premultiplied',
     });
 
-    this._gpu = { device, ctx, presentationFormat };
+    this.#gpu = { device, ctx, presentationFormat };
+
     resizeCanvasToDisplaySize(this.canvas);
   }
 
   async run() {
-    const { device, ctx } = this.assertGPU();
+    const { device, ctx } = this.#assertGPU();
 
-    this._createSharedGeometry();
-    this._createBindGroupLayout();
-    this._createShaders();
-    this._createPipeline();
+    this.#createSharedGeometry();
+    this.#createBindGroupLayout();
+    this.#createShaders();
+    this.#createPipeline();
 
-    this._render(device, ctx);
+    this.#render(device, ctx);
   }
 
   /** Workaround for TS lib ArrayBufferLike vs WebGPU GPUAllowSharedBufferSource */
-  private toBufferSource(data: Float32Array | Uint16Array): BufferSource {
+  #toBufferSource(data: Float32Array | Uint16Array): BufferSource {
     return data as BufferSource;
   }
 
   /** Create the shared geometry for the rectangles. */
-  private _createSharedGeometry() {
-    const { device } = this.assertGPU();
+  #createSharedGeometry() {
+    const { device } = this.#assertGPU();
 
-    if (!this._vertexBuffer) {
-      this._vertexBuffer = device.createBuffer({
+    if (!this.#vertexBuffer) {
+      this.#vertexBuffer = device.createBuffer({
         label: 'Vertex Buffer',
         size: UNIT_RECT_VERTICES.byteLength,
         usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
       });
 
-      device.queue.writeBuffer(this._vertexBuffer, 0, this.toBufferSource(UNIT_RECT_VERTICES));
+      device.queue.writeBuffer(this.#vertexBuffer, 0, this.#toBufferSource(UNIT_RECT_VERTICES));
 
-      this._vertexBufferLayout = {
+      this.#vertexBufferLayout = {
         arrayStride: VERTEX_STRIDE,
         attributes: [
           {
@@ -165,20 +167,20 @@ export class RenderManager {
       };
     }
 
-    if (!this._indexBuffer) {
-      this._indexBuffer = device.createBuffer({
+    if (!this.#indexBuffer) {
+      this.#indexBuffer = device.createBuffer({
         label: 'Index Buffer',
         size: UNIT_RECT_INDICES.byteLength,
         usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
       });
 
-      device.queue.writeBuffer(this._indexBuffer, 0, this.toBufferSource(UNIT_RECT_INDICES));
+      device.queue.writeBuffer(this.#indexBuffer, 0, this.#toBufferSource(UNIT_RECT_INDICES));
     }
   }
 
   /** Create the uniform buffer and bind group for a single geometry instance. */
-  private _createInstanceInfo(): InstanceInfo {
-    const { device } = this.assertGPU();
+  #createInstanceInfo(): InstanceInfo {
+    const { device } = this.#assertGPU();
 
     const uniformBuffer = device.createBuffer({
       label: 'Instance Uniform Buffer',
@@ -192,7 +194,7 @@ export class RenderManager {
 
     const bindGroup = device.createBindGroup({
       label: 'Instance Bind Group',
-      layout: this._bindGroupLayout!,
+      layout: this.#bindGroupLayout!,
       entries: [
         {
           binding: 0,
@@ -210,53 +212,30 @@ export class RenderManager {
     };
   }
 
-  private _getOrCreateInstanceInfo(index: number): InstanceInfo {
-    while (this._instanceInfos.length <= index) {
-      this._instanceInfos.push(this._createInstanceInfo());
+  #getOrCreateInstanceInfo(index: number): InstanceInfo {
+    while (this.#instanceInfos.length <= index) {
+      this.#instanceInfos.push(this.#createInstanceInfo());
     }
-    return this._instanceInfos[index];
+    return this.#instanceInfos[index];
   }
 
-  private _drawMesh(device: GPUDevice, pass: GPURenderPassEncoder, instanceNdx: number) {
-    const mesh = this.meshes[instanceNdx];
-    const instanceInfo = this._getOrCreateInstanceInfo(instanceNdx);
+  #createShaders() {
+    const { device } = this.#assertGPU();
 
-    // Copy the view-projection matrix to the temporary scratch matrix to keep the original matrix unchanged.
-    this._scratchMatrix.elements.set(this.transformMatrix.elements);
-    /**
-     * The vertex shader expects model-view-projection (MVP):
-     * clip_position = view_projection_matrix × world_matrix × local_vertex_position
-     */
-    this._scratchMatrix.multiply(mesh.node.worldMatrix);
-
-    instanceInfo.matrixValue.set(this._scratchMatrix.elements);
-    instanceInfo.colorValue.set(mesh.color);
-
-    device.queue.writeBuffer(instanceInfo.uniformBuffer, 0, this.toBufferSource(instanceInfo.uniformValues));
-
-    pass.setBindGroup(0, instanceInfo.bindGroup);
-    pass.setVertexBuffer(0, this._vertexBuffer!);
-    pass.setIndexBuffer(this._indexBuffer!, 'uint16');
-    pass.drawIndexed(mesh.numIndices, 1, 0);
-  }
-
-  private _createShaders() {
-    const { device } = this.assertGPU();
-
-    this._vertexShader = device.createShaderModule({
+    this.#vertexShader = device.createShaderModule({
       label: 'Vertex Shader',
       code: vertexShaderSource,
     });
-    this._fragmentShader = device.createShaderModule({
+    this.#fragmentShader = device.createShaderModule({
       label: 'Fragment Shader',
       code: fragmentShaderSource,
     });
   }
 
-  private _createBindGroupLayout() {
-    const { device } = this.assertGPU();
+  #createBindGroupLayout() {
+    const { device } = this.#assertGPU();
 
-    this._bindGroupLayout = device.createBindGroupLayout({
+    this.#bindGroupLayout = device.createBindGroupLayout({
       label: 'Bind Group Layout',
       entries: [
         {
@@ -268,36 +247,53 @@ export class RenderManager {
     });
   }
 
-  private _createPipeline() {
-    const { device, presentationFormat } = this.assertGPU();
+  #createPipeline() {
+    const { device, presentationFormat } = this.#assertGPU();
 
-    if (!this._vertexShader || !this._fragmentShader || !this._vertexBufferLayout || !this._bindGroupLayout) {
+    if (!this.#vertexShader || !this.#fragmentShader || !this.#vertexBufferLayout || !this.#bindGroupLayout) {
       throw new Error('Pipeline dependencies not created.');
     }
 
-    this._pipelineLayout = device.createPipelineLayout({
+    this.#pipelineLayout = device.createPipelineLayout({
       label: 'Pipeline Layout',
-      bindGroupLayouts: [this._bindGroupLayout],
+      bindGroupLayouts: [this.#bindGroupLayout],
     });
 
-    this._renderPipeline = device.createRenderPipeline({
+    this.#renderPipeline = device.createRenderPipeline({
       label: 'Render Pipeline',
-      layout: this._pipelineLayout,
+      layout: this.#pipelineLayout,
       vertex: {
-        module: this._vertexShader,
+        module: this.#vertexShader,
         entryPoint: 'main',
-        buffers: [this._vertexBufferLayout],
+        buffers: [this.#vertexBufferLayout],
       },
       fragment: {
-        module: this._fragmentShader,
+        module: this.#fragmentShader,
         entryPoint: 'main',
         targets: [{ format: presentationFormat }],
       },
     });
   }
 
-  private _computeViewProjection() {
+  #computeViewProjection() {
     const aspect = this.canvas.width / this.canvas.height;
+
+    if (this.#camera) {
+      /**
+       * Copy the OrbitCamera's matrix to the temporary matrix to keep the original Camera matrix unchanged.
+       */
+      this.#scratchMatrix.set(this.#camera.getMatrix().elements);
+      /**
+       * Make a view matrix from the camera's matrix.
+       */
+      this.#scratchMatrix.inverse();
+      /**
+       * Apply the perspective projection to the view matrix.
+       */
+      this.transformMatrix.perspective(this.settings.fieldOfView, aspect, 1, 2000).multiply(this.#scratchMatrix);
+
+      return;
+    }
 
     if (this.settings.useOrthographic) {
       const halfHeight = (this.settings.orthographicHeight * 0.5) / this.settings.zoom;
@@ -305,7 +301,6 @@ export class RenderManager {
       this.settings.orthographicTranslation[0] = this.settings.translation[0];
       this.settings.orthographicTranslation[1] = this.settings.translation[1];
       this.settings.orthographicTranslation[2] = 0;
-
       this.transformMatrix
         .orthographic(-halfWidth, halfWidth, -halfHeight, halfHeight, -1, 1)
         .translate(this.settings.orthographicTranslation)
@@ -320,15 +315,40 @@ export class RenderManager {
     }
   }
 
-  private _render(device: GPUDevice, ctx: GPUCanvasContext) {
-    if (!this._renderPipeline) {
+  #drawMesh(device: GPUDevice, pass: GPURenderPassEncoder, instanceNdx: number) {
+    const mesh = this.meshes[instanceNdx];
+    const instanceInfo = this.#getOrCreateInstanceInfo(instanceNdx);
+
+    /**
+     * Copy the view-projection matrix to the temporary scratch matrix to keep the original matrix unchanged.
+     */
+    this.#scratchMatrix.set(this.transformMatrix.elements);
+    /**
+     * The vertex shader expects model-view-projection (MVP):
+     * clip_position = view_projection_matrix × world_matrix × local_vertex_position
+     */
+    this.#scratchMatrix.multiply(mesh.node.worldMatrix);
+
+    instanceInfo.matrixValue.set(this.#scratchMatrix.elements);
+    instanceInfo.colorValue.set(mesh.color);
+    device.queue.writeBuffer(instanceInfo.uniformBuffer, 0, this.#toBufferSource(instanceInfo.uniformValues));
+
+    pass.setBindGroup(0, instanceInfo.bindGroup);
+    pass.setVertexBuffer(0, this.#vertexBuffer!);
+    pass.setIndexBuffer(this.#indexBuffer!, 'uint16');
+    pass.drawIndexed(mesh.numIndices, 1, 0);
+  }
+
+  #render(device: GPUDevice, ctx: GPUCanvasContext) {
+    if (!this.#renderPipeline) {
       throw new Error('Render pipeline not created.');
     }
 
-    this._computeViewProjection();
+    this.root.updateWorldMatrix();
+    this.#computeViewProjection();
 
     const encoder = device.createCommandEncoder();
-    const renderPass = encoder.beginRenderPass({
+    const pass = encoder.beginRenderPass({
       label: 'Render Pass',
       colorAttachments: [
         {
@@ -338,24 +358,25 @@ export class RenderManager {
         },
       ],
     });
-
-    renderPass.setPipeline(this._renderPipeline);
-
-    this.root.updateWorldMatrix();
+    pass.setPipeline(this.#renderPipeline);
 
     for (let i = 0; i < this.meshes.length; i++) {
-      this._drawMesh(device, renderPass, i);
+      this.#drawMesh(device, pass, i);
     }
 
-    renderPass.end();
+    pass.end();
     device.queue.submit([encoder.finish()]);
   }
 
   redraw() {
-    const gpu = this._gpu;
-    if (gpu && this._renderPipeline) {
-      this._render(gpu.device, gpu.ctx);
+    const gpu = this.#gpu;
+    if (gpu && this.#renderPipeline) {
+      this.#render(gpu.device, gpu.ctx);
     }
+  }
+
+  setCamera(camera: OrbitCamera) {
+    this.#camera = camera;
   }
 
   addNode(id: string, trs: Transformations, parent: SceneGraphNode = this.root): SceneGraphNode {
@@ -366,13 +387,13 @@ export class RenderManager {
 
   addRect(id: string, trs: Transformations, color: ColorLike, parent: SceneGraphNode = this.root) {
     const node = this.addNode(id, trs, parent);
-    const mesh = new Mesh(node, parseColorToRGBA(color), UNIT_RECT_INDICES.length);
+    const mesh = new Mesh(node, UNIT_RECT_INDICES.length, parseColorToRGBA(color));
     this.meshes.push(mesh);
     return mesh;
   }
 
   buildCard() {
-    const card = this.addNode('card', { translation: [0, 0, 0] });
+    const card = this.addNode('card', { translation: [0, 0, 0], scale: [300, 300, 1] });
     this.addRect(`${card.id}-background`, { scale: [1.4, 1.4, 1] }, '#4a5568', card);
     this.addRect(`${card.id}-inner`, { scale: [0.8, 0.8, 1] }, '#e2e8f0', card);
     return card;
