@@ -6,6 +6,7 @@ import { RenderManager } from './box/RenderManager.js';
 import { useCanvasInputGuard } from './useCanvasInputGuard.js';
 import { OrbitCamera } from './box/OrbitCamera.js';
 import { Vector3D } from './box/Vector3D.js';
+import { UNIT_RECT_VERTICES, UNIT_RECT_INDICES } from './box/shapes/rect.js';
 
 const gui = new GUI();
 
@@ -52,9 +53,10 @@ export function App() {
       orbitCamera.tilt = Math.PI;
       orbitCamera.radius = 300;
 
+      renderManager.setPipeline();
       renderManager.setCamera(orbitCamera);
-      renderManager.buildCard();
-      renderManager.run();
+      renderManager.buildCard(UNIT_RECT_VERTICES, UNIT_RECT_INDICES);
+      renderManager.redraw();
 
       renderManagerRef.current = renderManager;
       orbitCameraRef.current = orbitCamera;
@@ -67,6 +69,7 @@ export function App() {
 
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     orbitCameraRef.current?.handleDown(event.nativeEvent);
+    renderManagerRef.current?.pickMesh(event.nativeEvent);
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {

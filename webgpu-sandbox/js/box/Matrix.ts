@@ -1,4 +1,5 @@
 import { Vector2D } from './Vector2D';
+import { Vector3D } from './Vector3D';
 
 export type Vector3 = [number, number, number];
 
@@ -364,67 +365,5 @@ export class Matrix4 {
     m[15] = (m20 * b03 - m21 * b01 + m22 * b00) * invDeterminant;
 
     return this;
-  }
-
-  /**
-   * Transforms this matrix by a 3D vector.
-   */
-  transform(vector: Vector3) {
-    const m = this.elements;
-
-    const x = vector[0];
-    const y = vector[1];
-    const z = vector[2];
-
-    const c0r0 = m[0];
-    const c0r1 = m[1];
-    const c0r2 = m[2];
-
-    const c1r0 = m[4];
-    const c1r1 = m[5];
-    const c1r2 = m[6];
-
-    const c2r0 = m[8];
-    const c2r1 = m[9];
-    const c2r2 = m[10];
-
-    m[0] = x * c0r0 + y * c1r0 + z * c2r0;
-    m[1] = x * c0r1 + y * c1r1 + z * c2r1;
-    m[2] = x * c0r2 + y * c1r2 + z * c2r2;
-
-    return this;
-  }
-
-  /**
-   * Returns a new 2D vector, where the given vector is transformed by this 4x4 matrix and transformed as a 2D point (z=0, w=1), including translation.
-   * Transforms a point/position in space (like moving a dot from one location to another).
-   */
-  apply2DPoint(vector: Vector2D) {
-    const m = this.elements;
-    const x = vector.x;
-    const y = vector.y;
-
-    const tx = m[0] * x + m[4] * y + m[12];
-    const ty = m[1] * x + m[5] * y + m[13];
-    const tw = m[3] * x + m[7] * y + m[15];
-
-    if (tw !== 0 && tw !== 1) {
-      return new Vector2D(tx / tw, ty / tw);
-    }
-
-    return new Vector2D(tx, ty);
-  }
-
-  /**
-   * Returns a new 2D vector, where the given vector is transformed by this matrix and transformed as a 2D direction (z=0, w=0), excluding translation.
-   * This method does not include translation (e and f). It's a direction-only transformation.
-   * Transform a direction/velocity vector (like rotating which way something is pointing, but not changing its position).
-   */
-  apply2DVector(vector: Vector2D) {
-    const m = this.elements;
-    const x = vector.x;
-    const y = vector.y;
-
-    return new Vector2D(m[0] * x + m[4] * y, m[1] * x + m[5] * y);
   }
 }

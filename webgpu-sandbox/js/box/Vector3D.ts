@@ -1,3 +1,5 @@
+import { Matrix4 } from './Matrix';
+
 export class Vector3D {
   x: number;
   y: number;
@@ -55,6 +57,17 @@ export class Vector3D {
    */
   dot(vector: Vector3D) {
     return this.x * vector.x + this.y * vector.y + this.z * vector.z;
+  }
+
+  /**
+   * Cross product
+   */
+  cross(vector: Vector3D) {
+    return new Vector3D(
+      this.y * vector.z - this.z * vector.y,
+      this.z * vector.x - this.x * vector.z,
+      this.x * vector.y - this.y * vector.x,
+    );
   }
 
   /**
@@ -157,5 +170,51 @@ export class Vector3D {
    */
   orient(p: Vector3D, q: Vector3D) {
     return Math.sign(this.determinant(1, 1, 1, this.x, p.x, q.x, this.y, p.y, q.y));
+  }
+
+  /**
+   * Transforms this vector by a 4x4 matrix as a 3D point (w=1), including translation.
+   * It's a position transformation, like moving a dot from one location to another.
+   */
+  transformByMatrix4(matrix: Matrix4, vec3: Vector3D = this) {
+    const m = matrix.elements;
+    const x = vec3.x;
+    const y = vec3.y;
+    const z = vec3.z;
+
+    const tx = m[0] * x + m[4] * y + m[8] * z + m[12];
+    const ty = m[1] * x + m[5] * y + m[9] * z + m[13];
+    const tz = m[2] * x + m[6] * y + m[10] * z + m[14];
+    const tw = m[3] * x + m[7] * y + m[11] * z + m[15];
+
+    if (tw !== 0 && tw !== 1) {
+      this.x = tx / tw;
+      this.y = ty / tw;
+      this.z = tz / tw;
+      return this;
+    }
+
+    this.x = tx;
+    this.y = ty;
+    this.z = tz;
+
+    return this;
+  }
+
+  /**
+   * Transforms this vector by a 4x4 matrix as a 3D direction (w=0), excluding translation.
+   * It's a direction-only transformation, like rotating.
+   */
+  transformByMatrix4AsDirection(matrix: Matrix4, vec3: Vector3D = this) {
+    const m = matrix.elements;
+    const x = vec3.x;
+    const y = vec3.y;
+    const z = vec3.z;
+
+    this.x = m[0] * x + m[4] * y + m[8] * z;
+    this.y = m[1] * x + m[5] * y + m[9] * z;
+    this.z = m[2] * x + m[6] * y + m[10] * z;
+
+    return this;
   }
 }

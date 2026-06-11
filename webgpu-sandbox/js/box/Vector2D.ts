@@ -57,6 +57,13 @@ export class Vector2D {
   }
 
   /**
+   * Cross product
+   */
+  cross(vector: Vector2D) {
+    return this.x * vector.y - this.y * vector.x;
+  }
+
+  /**
    * Returns the angle between this vector and another vector
    */
   angle(vector: Vector2D) {
